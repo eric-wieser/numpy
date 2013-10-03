@@ -3614,35 +3614,6 @@ PyUFunc_Reduceat(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *ind,
         need_outer_iterator = 1;
     }
 
-    /* Special case when the index array's size is zero */
-    if (ind_size == 0) {
-        if (out == NULL) {
-            npy_intp out_shape[NPY_MAXDIMS];
-            memcpy(out_shape, PyArray_SHAPE(arr),
-                            PyArray_NDIM(arr) * NPY_SIZEOF_INTP);
-            out_shape[axis] = 0;
-            Py_INCREF(op_dtypes[0]);
-            op[0] = out = (PyArrayObject *)PyArray_NewFromDescr(
-                                        &PyArray_Type, op_dtypes[0],
-                                        PyArray_NDIM(arr), out_shape, NULL, NULL,
-                                        0, NULL);
-            if (out == NULL) {
-                goto fail;
-            }
-        }
-        else {
-            /* Allow any zero-sized output array in this case */
-            if (PyArray_SIZE(out) != 0) {
-                PyErr_SetString(PyExc_ValueError,
-                        "output operand shape for reduceat is "
-                        "incompatible with index array of shape (0,)");
-                goto fail;
-            }
-        }
-
-        goto finish;
-    }
-
     if (need_outer_iterator) {
         npy_uint32 flags = NPY_ITER_ZEROSIZE_OK|
                            NPY_ITER_REFS_OK|

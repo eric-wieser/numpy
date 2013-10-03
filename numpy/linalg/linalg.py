@@ -367,21 +367,8 @@ def solve(a, b):
     # We use the b = (..., M,) logic, only if the number of extra dimensions
     # match exactly
     if b.ndim == a.ndim - 1:
-        if a.shape[-1] == 0 and b.shape[-1] == 0:
-            # Legal, but the ufunc cannot handle the 0-sized inner dims
-            # let the ufunc handle all wrong cases.
-            a = a.reshape(a.shape[:-1])
-            bc = broadcast(a, b)
-            return wrap(empty(bc.shape, dtype=result_t))
-
         gufunc = _umath_linalg.solve1
     else:
-        if b.size == 0:
-            if (a.shape[-1] == 0 and b.shape[-2] == 0) or b.shape[-1] == 0:
-                a = a[:,:1].reshape(a.shape[:-1] + (1,))
-                bc = broadcast(a, b)
-                return wrap(empty(bc.shape, dtype=result_t))
-
         gufunc = _umath_linalg.solve
 
     signature = 'DD->D' if isComplexType(t) else 'dd->d'
