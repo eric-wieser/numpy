@@ -509,10 +509,6 @@ def inv(a):
     _assertNdSquareness(a)
     t, result_t = _commonType(a)
 
-    if a.shape[-1] == 0:
-        # The inner array is 0x0, the ufunc cannot handle this case
-        return wrap(empty_like(a, dtype=result_t))
-
     signature = 'D->D' if isComplexType(t) else 'd->d'
     extobj = get_linalg_error_extobj(_raise_linalgerror_singular)
     ainv = _umath_linalg.inv(a, signature=signature, extobj=extobj)

@@ -3260,14 +3260,6 @@ PyUFunc_Accumulate(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
         op[0] = NpyIter_GetOperandArray(iter)[0];
         op[1] = NpyIter_GetOperandArray(iter)[1];
 
-        if (PyArray_SIZE(op[0]) == 0) {
-            if (out == NULL) {
-                out = op[0];
-                Py_INCREF(out);
-            }
-            goto finish;
-        }
-
         if (NpyIter_RemoveAxis(iter, axis) != NPY_SUCCEED) {
             goto fail;
         }
