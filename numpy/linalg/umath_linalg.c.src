@@ -1092,7 +1092,10 @@ static inline void
     fortran_int info = 0;
     int i;
     /* note: done in place */
-    LAPACK(@cblas_type@getrf)(&m, &m, (void *)src, &m, pivots, &info);
+    if (m != 0) {
+        /* Lapack (at least some versions) do not handle n == 0 */
+        LAPACK(@cblas_type@getrf)(&m, &m, (void *)src, &m, pivots, &info);
+    }
 
     if (info == 0)
     {
@@ -1456,6 +1459,11 @@ static inline void
     size_t op_count = (JOBZ=='N')?2:3;
     EIGH_PARAMS_t eigh_params;
     int error_occurred = get_fp_invalid_and_clear();
+
+    if (dimensions[0] == 0) {
+        /* Lapack (at least some versions) do not handle n == 0 */
+        return;
+    }
 
     for (iter=0; iter < op_count; ++iter) {
         outer_steps[iter] = (ptrdiff_t) steps[iter];
@@ -2273,6 +2281,11 @@ static inline void
     STACK_TRACE;
     op_count += 'V'==JOBVL?1:0;
     op_count += 'V'==JOBVR?1:0;
+
+    if (dimensions[0] == 0) {
+        /* Lapack (at least some versions) do not handle n == 0 */
+        return;
+    }
 
     for (iter=0; iter < op_count; ++iter) {
         outer_steps[iter] = (ptrdiff_t) steps[iter];
