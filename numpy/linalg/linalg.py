@@ -1925,7 +1925,8 @@ def lstsq(a, b, rcond=-1):
     m  = a.shape[0]
     n  = a.shape[1]
     n_rhs = b.shape[1]
-    ldb = max(n, m)
+    ldb = max(max(n, m), 1)
+    lda = max(m, 1)
     if m != b.shape[0]:
         raise LinAlgError('Incompatible dimensions')
     t, result_t = _commonType(a, b)
@@ -1944,36 +1945,40 @@ def lstsq(a, b, rcond=-1):
     #    not have this bug:
     #      http://icl.cs.utk.edu/lapack-forum/archives/lapack/msg00899.html
     #    Lapack_lite does have that bug...
-    nlvl = max( 0, int( math.log( float(min(m, n))/2. ) ) + 1 )
-    iwork = zeros((3*min(m, n)*nlvl+11*min(m, n),), fortran_int)
     if isComplexType(t):
+        # do a workspace query (pass in lwork=-1)
         lapack_routine = lapack_lite.zgelsd
-        lwork = 1
-        rwork = zeros((lwork,), real_t)
-        work = zeros((lwork,), t)
-        results = lapack_routine(m, n, n_rhs, a, m, bstar, ldb, s, rcond,
-                                 0, work, -1, rwork, iwork, 0)
+        lwork = -1
+        rwork = zeros((1,), real_t)
+        work = zeros((1,), t)
+        iwork = zeros((1,), fortran_int)
+        results = lapack_routine(m, n, n_rhs, a, lda, bstar, ldb, s, rcond,
+                                 0, work, lwork, rwork, iwork, 0)
         lwork = int(abs(work[0]))
-        rwork = zeros((lwork,), real_t)
-        a_real = zeros((m, n), real_t)
-        bstar_real = zeros((ldb, n_rhs,), real_t)
-        results = lapack_lite.dgelsd(m, n, n_rhs, a_real, m,
-                                     bstar_real, ldb, s, rcond,
-                                     0, rwork, -1, iwork, 0)
         lrwork = int(rwork[0])
+        liwork = iwork[0]
+
+        # do the real call, with appropriately sized workspaces
         work = zeros((lwork,), t)
+        iwork = zeros((liwork,), fortran_int)
         rwork = zeros((lrwork,), real_t)
-        results = lapack_routine(m, n, n_rhs, a, m, bstar, ldb, s, rcond,
+        results = lapack_routine(m, n, n_rhs, a, lda, bstar, ldb, s, rcond,
                                  0, work, lwork, rwork, iwork, 0)
     else:
+        # do a workspace query (pass in lwork=-1)
         lapack_routine = lapack_lite.dgelsd
-        lwork = 1
-        work = zeros((lwork,), t)
-        results = lapack_routine(m, n, n_rhs, a, m, bstar, ldb, s, rcond,
-                                 0, work, -1, iwork, 0)
+        lwork = -1
+        work = zeros((1,), t)
+        iwork = zeros((1,), fortran_int)
+        results = lapack_routine(m, n, n_rhs, a, lda, bstar, ldb, s, rcond,
+                                 0, work, lwork, iwork, 0)
         lwork = int(work[0])
+        liwork = iwork[0]
+
+        # do the real call, with appropriately sized workspaces
         work = zeros((lwork,), t)
-        results = lapack_routine(m, n, n_rhs, a, m, bstar, ldb, s, rcond,
+        iwork = zeros((liwork,), fortran_int)
+        results = lapack_routine(m, n, n_rhs, a, lda, bstar, ldb, s, rcond,
                                  0, work, lwork, iwork, 0)
     if results['info'] > 0:
         raise LinAlgError('SVD did not converge in Linear Least Squares')
