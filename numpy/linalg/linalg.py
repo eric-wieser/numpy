@@ -1958,6 +1958,12 @@ def lstsq(a, b, rcond=-1):
         lrwork = int(rwork[0])
         liwork = iwork[0]
 
+        if any(size == 0 for size in (lwork, lrwork, liwork)):
+            raise RuntimeError(
+                'LAPACK did not compute workspace sizes: len(work) = {}, len(rwork) = {}, len(iwork) = {}'
+                .format(lwork, lrwork, liwork)
+            )
+
         # do the real call, with appropriately sized workspaces
         work = zeros((lwork,), t)
         iwork = zeros((liwork,), fortran_int)
@@ -1974,6 +1980,11 @@ def lstsq(a, b, rcond=-1):
                                  0, work, lwork, iwork, 0)
         lwork = int(work[0])
         liwork = iwork[0]
+        if any(size == 0 for size in (lwork, liwork)):
+            raise RuntimeError(
+                'LAPACK did not compute workspace sizes: len(work) = {}, len(iwork) = {}'
+                .format(lwork, liwork)
+            )
 
         # do the real call, with appropriately sized workspaces
         work = zeros((lwork,), t)
