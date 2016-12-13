@@ -2,7 +2,7 @@
 from __future__ import division, absolute_import, print_function
 
 import sys, os
-from io import StringIO
+from io import BytesIO as StringIO
 import re
 
 from Plex import *
