@@ -1,0 +1,56 @@
+@@ -57759,9 +57767,10 @@
+ *     Scan up each column tracking the last zero row seen.
+          ILACLR = 0
+          DO J = 1, N
++            I = M
+-            DO I = M, 1, -1
+-               IF( A(I, J).NE.ZERO ) EXIT
+-            END DO
++C           DO I = M, 1, -1
++C              IF( A(I, J).NE.ZERO ) EXIT
++C           END DO
+             ILACLR = MAX( ILACLR, I )
+          END DO
+       END IF
+@@ -57887,9 +57896,10 @@
+ *     Scan up each column tracking the last zero row seen.
+          ILADLR = 0
+          DO J = 1, N
++            I = M
+-            DO I = M, 1, -1
+-               IF( A(I, J).NE.ZERO ) EXIT
+-            END DO
++C           DO I = M, 1, -1
++C              IF( A(I, J).NE.ZERO ) EXIT
++C           END DO
+             ILADLR = MAX( ILADLR, I )
+          END DO
+       END IF
+@@ -58570,9 +58580,10 @@
+ *     Scan up each column tracking the last zero row seen.
+          ILASLR = 0
+          DO J = 1, N
++            I = M
+-            DO I = M, 1, -1
+-               IF( A(I, J).NE.ZERO ) EXIT
+-            END DO
++C           DO I = M, 1, -1
++C              IF( A(I, J).NE.ZERO ) EXIT
++C           END DO
+             ILASLR = MAX( ILASLR, I )
+          END DO
+       END IF
+@@ -58698,9 +58709,10 @@
+ *     Scan up each column tracking the last zero row seen.
+          ILAZLR = 0
+          DO J = 1, N
++            I = M
+-            DO I = M, 1, -1
+-               IF( A(I, J).NE.ZERO ) EXIT
+-            END DO
++C           DO I = M, 1, -1
++C              IF( A(I, J).NE.ZERO ) EXIT
++C           END DO
+             ILAZLR = MAX( ILAZLR, I )
+          END DO
+       END IF
