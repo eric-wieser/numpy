@@ -720,16 +720,6 @@ class TestPinv(LinalgSquareTestCase, LinalgNonsquareTestCase):
         assert_almost_equal(dot(a, a_ginv).dot(a), a, single_decimal=5, double_decimal=11)
         assert_(imply(isinstance(a, matrix), isinstance(a_ginv, matrix)))
 
-    def test_0_size(self):
-        # These raise errors currently
-        # (which does not mean that it may not make sense)
-        a = np.zeros((0, 0), dtype=np.complex64)
-        assert_raises(linalg.LinAlgError, linalg.pinv, a)
-        a = np.zeros((0, 1), dtype=np.complex64)
-        assert_raises(linalg.LinAlgError, linalg.pinv, a)
-        a = np.zeros((1, 0), dtype=np.complex64)
-        assert_raises(linalg.LinAlgError, linalg.pinv, a)
-
 
 class TestDet(LinalgSquareTestCase, LinalgGeneralizedSquareTestCase):
 
