@@ -889,8 +889,6 @@ def eigvals(a):
     _assertNdSquareness(a)
     _assertFinite(a)
     t, result_t = _commonType(a)
-    if _isEmpty2d(a):
-        return empty(a.shape[-1:], dtype=result_t)
 
     extobj = get_linalg_error_extobj(
         _raise_linalgerror_eigenvalues_nonconvergence)
@@ -959,9 +957,9 @@ def eigvalsh(a, UPLO='L'):
     >>> a = np.array([[1, -2j], [2j, 5]])
     >>> LA.eigvalsh(a)
     array([ 0.17157288,  5.82842712])
-    
+
     >>> # demonstrate the treatment of the imaginary part of the diagonal
-    >>> a = np.array([[5+2j, 9-2j], [0+2j, 2-1j]]) 
+    >>> a = np.array([[5+2j, 9-2j], [0+2j, 2-1j]])
     >>> a
     array([[ 5.+2.j,  9.-2.j],
            [ 0.+2.j,  2.-1.j]])
@@ -993,8 +991,6 @@ def eigvalsh(a, UPLO='L'):
     _assertRankAtLeast2(a)
     _assertNdSquareness(a)
     t, result_t = _commonType(a)
-    if _isEmpty2d(a):
-        return empty(a.shape[-1:], dtype=result_t)
     signature = 'D->d' if isComplexType(t) else 'd->d'
     w = gufunc(a, signature=signature, extobj=extobj)
     return w.astype(_realType(result_t), copy=False)
@@ -1132,10 +1128,6 @@ def eig(a):
     _assertNdSquareness(a)
     _assertFinite(a)
     t, result_t = _commonType(a)
-    if _isEmpty2d(a):
-        w = empty(a.shape[-1:], dtype=result_t)
-        vt = empty(a.shape, dtype=result_t)
-        return w, wrap(vt)
 
     extobj = get_linalg_error_extobj(
         _raise_linalgerror_eigenvalues_nonconvergence)
@@ -1245,7 +1237,7 @@ def eigh(a, UPLO='L'):
             [ 0.00000000+0.38268343j,  0.00000000-0.92387953j]])
 
     >>> # demonstrate the treatment of the imaginary part of the diagonal
-    >>> a = np.array([[5+2j, 9-2j], [0+2j, 2-1j]]) 
+    >>> a = np.array([[5+2j, 9-2j], [0+2j, 2-1j]])
     >>> a
     array([[ 5.+2.j,  9.-2.j],
            [ 0.+2.j,  2.-1.j]])
@@ -1273,10 +1265,6 @@ def eigh(a, UPLO='L'):
     _assertRankAtLeast2(a)
     _assertNdSquareness(a)
     t, result_t = _commonType(a)
-    if _isEmpty2d(a):
-        w = empty(a.shape[-1:], dtype=result_t)
-        vt = empty(a.shape, dtype=result_t)
-        return w, wrap(vt)
 
     extobj = get_linalg_error_extobj(
         _raise_linalgerror_eigenvalues_nonconvergence)
