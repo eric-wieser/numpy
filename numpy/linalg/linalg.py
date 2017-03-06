@@ -1740,11 +1740,6 @@ def slogdet(a):
     _assertNdSquareness(a)
     t, result_t = _commonType(a)
     real_t = _realType(result_t)
-    if _isEmpty2d(a):
-        # determinant of empty matrix is 1
-        sign = ones(a.shape[:-2], dtype=result_t)
-        logdet = zeros(a.shape[:-2], dtype=real_t)
-        return sign, logdet
     signature = 'D->Dd' if isComplexType(t) else 'd->dd'
     sign, logdet = _umath_linalg.slogdet(a, signature=signature)
     if isscalar(sign):
@@ -1808,9 +1803,6 @@ def det(a):
     _assertRankAtLeast2(a)
     _assertNdSquareness(a)
     t, result_t = _commonType(a)
-    # 0x0 matrices have determinant 1
-    if _isEmpty2d(a):
-        return ones(a.shape[:-2], dtype=result_t)
     signature = 'D->D' if isComplexType(t) else 'd->d'
     r = _umath_linalg.det(a, signature=signature)
     if isscalar(r):
