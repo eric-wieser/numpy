@@ -1973,6 +1973,7 @@ init_@lapack_func@(GEEV_PARAMS_t *params, char jobvl, char jobvr, fortran_int n)
     @typ@ work_size_query;
     fortran_int do_size_query = -1;
     fortran_int rv;
+    fortran_int ld = n > 0 ? n : 1;
 
     /* allocate data for known sizes (all but work) */
     mem_buff = malloc(a_size + wr_size + wi_size +
@@ -1990,8 +1991,8 @@ init_@lapack_func@(GEEV_PARAMS_t *params, char jobvl, char jobvr, fortran_int n)
     vl = w + w_size;
     vr = vl + vl_size;
     LAPACK(@lapack_func@)(&jobvl, &jobvr, &n,
-                          (void *)a, &n, (void *)wr, (void *)wi,
-                          (void *)vl, &n, (void *)vr, &n,
+                          (void *)a, &ld, (void *)wr, (void *)wi,
+                          (void *)vl, &ld, (void *)vr, &ld,
                           &work_size_query, &do_size_query,
                           &rv);
 
@@ -2014,9 +2015,9 @@ init_@lapack_func@(GEEV_PARAMS_t *params, char jobvl, char jobvr, fortran_int n)
     params->VL = vl;
     params->VR = vr;
     params->N = n;
-    params->LDA = n;
-    params->LDVL = n;
-    params->LDVR = n;
+    params->LDA = ld;
+    params->LDVL = ld;
+    params->LDVR = ld;
     params->LWORK = (fortran_int)work_count;
     params->JOBVL = jobvl;
     params->JOBVR = jobvr;
@@ -2168,6 +2169,7 @@ init_@lapack_func@(GEEV_PARAMS_t* params,
     fortran_int do_size_query = -1;
     fortran_int rv;
     size_t total_size = a_size + w_size + vl_size + vr_size + rwork_size;
+    fortran_int ld = n > 0 ? n : 1;
 
     mem_buff = malloc(total_size);
     if (!mem_buff)
@@ -2179,8 +2181,8 @@ init_@lapack_func@(GEEV_PARAMS_t* params,
     vr = vl + vl_size;
     rwork = vr + vr_size;
     LAPACK(@lapack_func@)(&jobvl, &jobvr, &n,
-                          (void *)a, &n, (void *)w,
-                          (void *)vl, &n, (void *)vr, &n,
+                          (void *)a, &ld, (void *)w,
+                          (void *)vl, &ld, (void *)vr, &ld,
                           (void *)&work_size_query, &do_size_query,
                           (void *)rwork,
                           &rv);
@@ -2188,6 +2190,9 @@ init_@lapack_func@(GEEV_PARAMS_t* params,
         goto error;
 
     work_count = (size_t) work_size_query.array[0];
+    /* Fix a bug in lapack 3.0.0 */
+    if(work_count == 0) work_count = 1;
+
     mem_buff2 = malloc(work_count*sizeof(@ftyp@));
     if (!mem_buff2)
         goto error;
@@ -2204,9 +2209,9 @@ init_@lapack_func@(GEEV_PARAMS_t* params,
     params->WORK = work;
     params->W = w;
     params->N = n;
-    params->LDA = n;
-    params->LDVL = n;
-    params->LDVR = n;
+    params->LDA = ld;
+    params->LDVL = ld;
+    params->LDVR = ld;
     params->LWORK = (fortran_int)work_count;
     params->JOBVL = jobvl;
     params->JOBVR = jobvr;
@@ -2279,11 +2284,6 @@ static inline void
     STACK_TRACE;
     op_count += 'V'==JOBVL?1:0;
     op_count += 'V'==JOBVR?1:0;
-
-    if (dimensions[0] == 0) {
-        /* Lapack (at least some versions) do not handle n == 0 */
-        return;
-    }
 
     for (iter=0; iter < op_count; ++iter) {
         outer_steps[iter] = (ptrdiff_t) steps[iter];
