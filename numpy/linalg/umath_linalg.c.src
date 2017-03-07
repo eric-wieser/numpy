@@ -1777,6 +1777,7 @@ init_@lapack_func@(POTR_PARAMS_t *params, char UPLO, fortran_int N)
     npy_uint8 *mem_buff = NULL;
     npy_uint8 *a;
     size_t safe_N = N;
+    fortran_int lda = N > 0 ? N : 1;
 
     mem_buff = malloc(safe_N * safe_N * sizeof(@ftyp@));
     if (!mem_buff)
@@ -1786,7 +1787,7 @@ init_@lapack_func@(POTR_PARAMS_t *params, char UPLO, fortran_int N)
 
     params->A = a;
     params->N = N;
-    params->LDA = N;
+    params->LDA = lda;
     params->UPLO = UPLO;
 
     return 1;
@@ -1826,10 +1827,6 @@ static void
     assert(uplo == 'L');
 
     n = (fortran_int)dimensions[0];
-    if (n == 0) {
-        /* Lapack (at least some versions) do not handle n == 0 */
-        return;
-    }
 
     if (init_@lapack_func@(&params, uplo, n))
     {
