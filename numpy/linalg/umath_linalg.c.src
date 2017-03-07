@@ -1724,7 +1724,6 @@ static void
     INIT_OUTER_LOOP_2
 
     n = (fortran_int)dimensions[0];
-
     if (init_@lapack_func@(&params, n, n)) {
         LINEARIZE_DATA_t a_in, r_out;
         init_linearize_data(&a_in, n, n, steps[1], steps[0]);
@@ -1827,7 +1826,6 @@ static void
     assert(uplo == 'L');
 
     n = (fortran_int)dimensions[0];
-
     if (init_@lapack_func@(&params, uplo, n))
     {
         LINEARIZE_DATA_t a_in, r_out;
