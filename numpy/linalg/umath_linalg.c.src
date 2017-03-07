@@ -1596,6 +1596,7 @@ init_@lapack_func@(GESV_PARAMS_t *params, fortran_int N, fortran_int NRHS)
     npy_uint8 *a, *b, *ipiv;
     size_t safe_N = N;
     size_t safe_NRHS = NRHS;
+    fortran_int ld = N > 0 ? N : 1;
     mem_buff = malloc(safe_N * safe_N * sizeof(@ftyp@) +
                       safe_N * safe_NRHS*sizeof(@ftyp@) +
                       safe_N * sizeof(fortran_int));
@@ -1610,8 +1611,8 @@ init_@lapack_func@(GESV_PARAMS_t *params, fortran_int N, fortran_int NRHS)
     params->IPIV = (fortran_int*)ipiv;
     params->N = N;
     params->NRHS = NRHS;
-    params->LDA = N;
-    params->LDB = N;
+    params->LDA = ld;
+    params->LDB = ld;
 
     return 1;
  error:
@@ -1651,11 +1652,6 @@ static void
     INIT_OUTER_LOOP_3
 
     n = (fortran_int)dimensions[0];
-    if (n == 0) {
-        /* Lapack (at least some versions) do not handle n == 0 */
-        return;
-    }
-
     nrhs = (fortran_int)dimensions[1];
     if (init_@lapack_func@(&params, n, nrhs)) {
         LINEARIZE_DATA_t a_in, b_in, r_out;
@@ -1693,11 +1689,6 @@ static void
     INIT_OUTER_LOOP_3
 
     n = (fortran_int)dimensions[0];
-    if (n == 0) {
-        /* Lapack (at least some versions) do not handle n == 0 */
-        return;
-    }
-
     if (init_@lapack_func@(&params, n, 1)) {
         LINEARIZE_DATA_t a_in, b_in, r_out;
         init_linearize_data(&a_in, n, n, steps[1], steps[0]);
@@ -1733,10 +1724,6 @@ static void
     INIT_OUTER_LOOP_2
 
     n = (fortran_int)dimensions[0];
-    if (n == 0) {
-        /* Lapack (at least some versions) do not handle n == 0 */
-        return;
-    }
 
     if (init_@lapack_func@(&params, n, n)) {
         LINEARIZE_DATA_t a_in, r_out;
