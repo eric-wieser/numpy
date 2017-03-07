@@ -1232,6 +1232,7 @@ typedef struct eigh_params_struct {
     fortran_int LIWORK;
     char JOBZ;
     char UPLO;
+    fortran_int LDA;
 } EIGH_PARAMS_t;
 
 /**begin repeat
@@ -1259,6 +1260,7 @@ init_@lapack_func@(EIGH_PARAMS_t* params, char JOBZ, char UPLO,
     npy_uint8 *a, *w, *work, *iwork;
     size_t safe_N = N;
     size_t alloc_size = safe_N * (safe_N + 1) * sizeof(@typ@);
+    fortran_int lda = N > 0 ? N : 1;
 
     mem_buff = malloc(alloc_size);
 
@@ -1267,7 +1269,7 @@ init_@lapack_func@(EIGH_PARAMS_t* params, char JOBZ, char UPLO,
     a = mem_buff;
     w = mem_buff + safe_N * safe_N * sizeof(@typ@);
     LAPACK(@lapack_func@)(&JOBZ, &UPLO, &N,
-                          (@ftyp@*)a, &N, (@ftyp@*)w,
+                          (@ftyp@*)a, &lda, (@ftyp@*)w,
                           &query_work_size, &lwork,
                           &query_iwork_size, &liwork,
                           &info);
@@ -1296,6 +1298,7 @@ init_@lapack_func@(EIGH_PARAMS_t* params, char JOBZ, char UPLO,
     params->LIWORK = liwork;
     params->JOBZ = JOBZ;
     params->UPLO = UPLO;
+    params->LDA = lda;
 
     return 1;
 
@@ -1313,7 +1316,7 @@ call_@lapack_func@(EIGH_PARAMS_t *params)
 {
     fortran_int rv;
     LAPACK(@lapack_func@)(&params->JOBZ, &params->UPLO, &params->N,
-                          params->A, &params->N, params->W,
+                          params->A, &params->LDA, params->W,
                           params->WORK, &params->LWORK,
                           params->IWORK, &params->LIWORK,
                           &rv);
@@ -1351,6 +1354,7 @@ init_@lapack_func@(EIGH_PARAMS_t *params,
     npy_uint8 *a, *w, *work, *rwork, *iwork;
     fortran_int info;
     size_t safe_N = N;
+    fortran_int lda = N > 0 ? N : 1;
 
     mem_buff = malloc(safe_N * safe_N * sizeof(@typ@) +
     	              safe_N * sizeof(@basetyp@));
@@ -1360,7 +1364,7 @@ init_@lapack_func@(EIGH_PARAMS_t *params,
     w = mem_buff + safe_N * safe_N * sizeof(@typ@);
 
     LAPACK(@lapack_func@)(&JOBZ, &UPLO, &N,
-                          (@ftyp@*)a, &N, (@fbasetyp@*)w,
+                          (@ftyp@*)a, &lda, (@fbasetyp@*)w,
                           &query_work_size, &lwork,
                           &query_rwork_size, &lrwork,
                           &query_iwork_size, &liwork,
@@ -1392,6 +1396,7 @@ init_@lapack_func@(EIGH_PARAMS_t *params,
     params->LIWORK = liwork;
     params->JOBZ = JOBZ;
     params->UPLO = UPLO;
+    params->LDA = lda;
 
     return 1;
 
@@ -1409,7 +1414,7 @@ call_@lapack_func@(EIGH_PARAMS_t *params)
 {
     fortran_int rv;
     LAPACK(@lapack_func@)(&params->JOBZ, &params->UPLO, &params->N,
-                          params->A, &params->N, params->W,
+                          params->A, &params->LDA, params->W,
                           params->WORK, &params->LWORK,
                           params->RWORK, &params->LRWORK,
                           params->IWORK, &params->LIWORK,
@@ -1457,11 +1462,6 @@ static inline void
     size_t op_count = (JOBZ=='N')?2:3;
     EIGH_PARAMS_t eigh_params;
     int error_occurred = get_fp_invalid_and_clear();
-
-    if (dimensions[0] == 0) {
-        /* Lapack (at least some versions) do not handle n == 0 */
-        return;
-    }
 
     for (iter=0; iter < op_count; ++iter) {
         outer_steps[iter] = (ptrdiff_t) steps[iter];
