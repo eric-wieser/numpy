@@ -3132,6 +3132,8 @@ init_@lapack_func@(GELSD_PARAMS_t *params,
 /**begin repeat
    #TYPE=FLOAT,DOUBLE,CFLOAT,CDOUBLE#
    #REALTYPE=FLOAT,DOUBLE,FLOAT,DOUBLE#
+   #typ=npy_float,npy_double,npy_cfloat,npy_cdouble#
+   #basetyp=npy_float,npy_double,npy_float,npy_double#
    #lapack_func=sgelsd,dgelsd,cgelsd,zgelsd#
  */
 static inline void
@@ -3143,41 +3145,72 @@ release_@lapack_func@(GELSD_PARAMS_t* params)
     memset(params, 0, sizeof(*params));
 }
 
-static inline void
-@TYPE@_lstsq_wrapper(char**args,
-                   npy_intp* dimensions,
-                   npy_intp* steps)
+static void
+@TYPE@_lstsq_inner(char **args, npy_intp *dimensions, npy_intp *steps,
+                   npy_bool is_vector)
 {
-    ptrdiff_t outer_steps[4];
-    size_t iter;
-    size_t outer_dim = *dimensions++;
-    size_t op_count = 3;
+    GELSD_PARAMS_t params;
     int error_occurred = get_fp_invalid_and_clear();
-    GELSD_PARAMS_t gelsd_params;
+    fortran_int n, m, nrhs;
+    INIT_OUTER_LOOP_6
 
+    m = (fortran_int)dimensions[0];
+    n = (fortran_int)dimensions[1];
+    nrhs = is_vector ? 1 : (fortran_int)dimensions[2];
 
-    STACK_TRACE;
+    if (init_@lapack_func@(&params, m, n, nrhs)) {
+        LINEARIZE_DATA_t a_in, b_in, x_out, s_out;
 
-    for (iter=0; iter < op_count; ++iter) {
-        outer_steps[iter] = (ptrdiff_t) steps[iter];
+        if (is_vector) {
+            init_linearize_data(&a_in, n, m, steps[1], steps[0]);
+            init_linearize_data(&b_in, nrhs, m, 1, steps[2]);
+            init_linearize_data(&x_out, nrhs, n, 1, steps[3]);
+            init_linearize_data(&s_out, 1, min(n, m), 1, steps[4]);
+        }
+        else {
+            init_linearize_data(&a_in, n, m, steps[1], steps[0]);
+            init_linearize_data(&b_in, nrhs, m, steps[3], steps[2]);
+            init_linearize_data(&x_out, nrhs, n, steps[5], steps[4]);
+            init_linearize_data(&s_out, 1, min(n, m), 1, steps[6]);
+        }
+
+        BEGIN_OUTER_LOOP_6
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_@TYPE@_matrix(params.B, args[1], &b_in);
+            params.RCOND = *(@basetyp@ *)args[2];
+            not_ok = call_@lapack_func@(&params);
+            if (!not_ok) {
+                delinearize_@TYPE@_matrix(args[3], params.B, &x_out);
+                *(npy_int*) args[4] = params.RANK;
+                delinearize_@TYPE@_matrix(args[5], params.S, &s_out);
+            } else {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[3], &x_out);
+                *(npy_int*) args[4] = -1;
+                nan_@TYPE@_matrix(args[5], &s_out);
+            }
+        END_OUTER_LOOP
+
+        release_@lapack_func@(&params);
     }
-    steps += op_count;
-
-
-    /* TODO */
 
     set_fp_invalid_or_clear(error_occurred);
 }
 
 static void
-@TYPE@_lstsq(char **args,
-           npy_intp *dimensions,
-           npy_intp *steps,
-           void *NPY_UNUSED(func))
+@TYPE@_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
+             void *NPY_UNUSED(func))
 {
-    @TYPE@_lstsq_wrapper(args, dimensions, steps);
+    @TYPE@_lstsq_inner(args, dimensions, steps, 0);
 }
 
+static void
+@TYPE@_lstsq1(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+    @TYPE@_lstsq_inner(args, dimensions, steps, 1);
+}
 
 /**end repeat**/
 
@@ -3252,6 +3285,7 @@ GUFUNC_FUNC_ARRAY_REAL_COMPLEX(svd_N);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(svd_S);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(svd_A);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq1);
 GUFUNC_FUNC_ARRAY_EIG(eig);
 GUFUNC_FUNC_ARRAY_EIG(eigvals);
 
@@ -3317,12 +3351,12 @@ static char svd_1_3_types[] = {
     NPY_CDOUBLE, NPY_CDOUBLE, NPY_DOUBLE, NPY_CDOUBLE
 };
 
-/* third argument is rcond */
+/*  A,           b,           rcond,      x,           rank,    s        */
 static char lstsq_types[] = {
-    NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
-    NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE,
-    NPY_CFLOAT, NPY_CFLOAT, NPY_FLOAT, NPY_CFLOAT,
-    NPY_CDOUBLE, NPY_CDOUBLE, NPY_DOUBLE, NPY_CDOUBLE
+    NPY_FLOAT,   NPY_FLOAT,   NPY_FLOAT,  NPY_FLOAT,   NPY_INT, NPY_FLOAT,
+    NPY_DOUBLE,  NPY_DOUBLE,  NPY_DOUBLE, NPY_DOUBLE,  NPY_INT, NPY_DOUBLE,
+    NPY_CFLOAT,  NPY_CFLOAT,  NPY_FLOAT,  NPY_CFLOAT,  NPY_INT, NPY_FLOAT,
+    NPY_CDOUBLE, NPY_CDOUBLE, NPY_DOUBLE, NPY_CDOUBLE, NPY_INT, NPY_DOUBLE
 };
 
 typedef struct gufunc_descriptor_struct {
@@ -3511,20 +3545,47 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors [] = {
         "eigvals",
         "(m,m)->(m)",
         "eigvals on the last two dimension and broadcast to the rest. \n"\
-        "Results in a vector of eigenvalues. \n"\
-        "    \"(m,m)->(m),(m,m)\" \n",
+        "Results in a vector of eigenvalues. \n",
         3, 1, 1,
         FUNC_ARRAY_NAME(eigvals),
         eigvals_types
     },
     {
-        "lstsq",
-        "(m,n),(m,o),()->(n,o)",
+        "lstsq_m",
+        "(m,n),(m,nrhs),()->(n,nrhs),(),(m)",
         "least squares on the last two dimension and broadcast to the rest. \n"\
-        "Results in a vector of eigenvalues. \n"\
-        "    \"(m,m)->(m),(m,m)\" \n",
-        4, 3, 1,
+        "For m <= n. \n",
+        4, 3, 3,
         FUNC_ARRAY_NAME(lstsq),
+        lstsq_types
+    },
+    {
+        "lstsq_n",
+        "(m,n),(m,nrhs),()->(n,nrhs),(),(n)",
+        "least squares on the last two dimension and broadcast to the rest. \n"\
+        "For m >= n. \n",
+        4, 3, 3,
+        FUNC_ARRAY_NAME(lstsq),
+        lstsq_types
+    },
+    {
+        "lstsq1_m",
+        "(m,n),(m),()->(n),(),(m)",
+        "least squares on the last two dimension and broadcast to the rest. \n"\
+        "For m <= n. \n"\
+        "    \"(m,m)->(m),(m,m)\" \n",
+        4, 3, 3,
+        FUNC_ARRAY_NAME(lstsq1),
+        lstsq_types
+    },
+    {
+        "lstsq1_n",
+        "(m,n),(m),()->(n),(),(n)",
+        "least squares on the last two dimension and broadcast to the rest. \n"\
+        "For m >= n \n"\
+        "    \"(m,m)->(m),(m,m)\" \n",
+        4, 3, 3,
+        FUNC_ARRAY_NAME(lstsq1),
         lstsq_types
     },
 };
