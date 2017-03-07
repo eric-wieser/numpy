@@ -1366,7 +1366,6 @@ def svd(a, full_matrices=1, compute_uv=1):
 
     """
     a, wrap = _makearray(a)
-    _assertNoEmpty2d(a)
     _assertRankAtLeast2(a)
     t, result_t = _commonType(a)
 
@@ -1483,6 +1482,7 @@ def cond(x, p=None):
 
     """
     x = asarray(x)  # in case we have a matrix
+    _assertNoEmpty2d(x)
     if p is None:
         s = svd(x, compute_uv=False)
         return s[..., 0]/s[..., -1]
@@ -1643,19 +1643,17 @@ def pinv(a, rcond=1e-15 ):
 
     """
     a, wrap = _makearray(a)
-    if _isEmpty2d(a):
-        res = empty(a.shape[:-2] + (a.shape[-1], a.shape[-2]), dtype=a.dtype)
-        return wrap(res)
     a = a.conjugate()
     u, s, vt = svd(a, 0)
     m = u.shape[0]
     n = vt.shape[1]
-    cutoff = rcond*maximum.reduce(s)
-    for i in range(min(n, m)):
-        if s[i] > cutoff:
-            s[i] = 1./s[i]
-        else:
-            s[i] = 0.
+    if s.size > 0:
+        cutoff = rcond*maximum.reduce(s)
+        for i in range(min(n, m)):
+            if s[i] > cutoff:
+                s[i] = 1./s[i]
+            else:
+                s[i] = 0.
     res = dot(transpose(vt), multiply(s[:, newaxis], transpose(u)))
     return wrap(res)
 

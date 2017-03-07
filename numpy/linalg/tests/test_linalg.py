@@ -636,10 +636,6 @@ class TestEig(LinalgSquareTestCase, LinalgGeneralizedSquareTestCase):
 class TestSVD(LinalgSquareTestCase, LinalgGeneralizedSquareTestCase):
 
     def do(self, a, b, tags):
-        if 'size-0' in tags:
-            assert_raises(LinAlgError, linalg.svd, a, 0)
-            return
-
         u, s, vt = linalg.svd(a, 0)
         assert_allclose(a, dot_generalized(np.asarray(u) * np.asarray(s)[..., None, :],
                                            np.asarray(vt)),
@@ -660,28 +656,20 @@ class TestSVD(LinalgSquareTestCase, LinalgGeneralizedSquareTestCase):
         for dtype in [single, double, csingle, cdouble]:
             yield check, dtype
 
-    def test_0_size(self):
-        # These raise errors currently
-        # (which does not mean that it may not make sense)
-        a = np.zeros((0, 0), dtype=np.complex64)
-        assert_raises(linalg.LinAlgError, linalg.svd, a)
-        a = np.zeros((0, 1), dtype=np.complex64)
-        assert_raises(linalg.LinAlgError, linalg.svd, a)
-        a = np.zeros((1, 0), dtype=np.complex64)
-        assert_raises(linalg.LinAlgError, linalg.svd, a)
-
 
 class TestCondSVD(LinalgSquareTestCase, LinalgGeneralizedSquareTestCase):
 
     def do(self, a, b, tags):
         c = asarray(a)  # a might be a matrix
-        if 'size-0' in tags:
-            assert_raises(LinAlgError, linalg.svd, c, compute_uv=False)
-            return
         s = linalg.svd(c, compute_uv=False)
-        assert_almost_equal(
-            s[..., 0] / s[..., -1], linalg.cond(a),
-            single_decimal=5, double_decimal=11)
+
+        if 'size-0' in tags:
+            assert_equal(s.shape[-1], 0)
+            assert_raises(LinAlgError, linalg.cond, a)
+        else:
+            assert_almost_equal(
+                s[..., 0] / s[..., -1], linalg.cond(a),
+                single_decimal=5, double_decimal=11)
 
     def test_stacked_arrays_explicitly(self):
         A = np.array([[1., 2., 1.], [0, -2., 0], [6., 2., 3.]])
@@ -693,7 +681,7 @@ class TestCond2(LinalgSquareTestCase):
     def do(self, a, b, tags):
         c = asarray(a)  # a might be a matrix
         if 'size-0' in tags:
-            assert_raises(LinAlgError, linalg.svd, c, compute_uv=False)
+            assert_raises(LinAlgError, linalg.cond, a, 2)
             return
         s = linalg.svd(c, compute_uv=False)
         assert_almost_equal(
