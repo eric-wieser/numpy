@@ -2483,6 +2483,7 @@ init_@lapack_func@(GESDD_PARAMS_t *params,
     fortran_int work_count;
     size_t work_size;
     size_t iwork_size = 8 * safe_min_m_n * sizeof(fortran_int);
+    fortran_int ld = m > 0 ? m : 1;
 
     if (!compute_urows_vtcolumns(jobz, m, n, &u_row_count, &vt_column_count))
         goto error;
@@ -2512,13 +2513,15 @@ init_@lapack_func@(GESDD_PARAMS_t *params,
         fortran_int do_query = -1;
         fortran_int rv;
         LAPACK(@lapack_func@)(&jobz, &m, &n,
-                              (void*)a, &m, (void*)s, (void*)u, &m,
+                              (void*)a, &ld, (void*)s, (void*)u, &ld,
                               (void*)vt, &vt_column_count,
                               &work_size_query, &do_query,
                               (void*)iwork, &rv);
         if (0!=rv)
             goto error;
         work_count = (fortran_int)work_size_query;
+        /* Fix a bug in lapack 3.0.0 */
+        if(work_count == 0) work_count = 1;
         work_size = (size_t)work_count * sizeof(@ftyp@);
     }
 
@@ -2539,8 +2542,8 @@ init_@lapack_func@(GESDD_PARAMS_t *params,
     params->IWORK = iwork;
     params->M = m;
     params->N = n;
-    params->LDA = m;
-    params->LDU = m;
+    params->LDA = ld;
+    params->LDU = ld;
     params->LDVT = vt_column_count;
     params->LWORK = work_count;
     params->JOBZ = jobz;
@@ -2595,6 +2598,7 @@ init_@lapack_func@(GESDD_PARAMS_t *params,
     size_t safe_n = n;
     fortran_int min_m_n = m<n?m:n;
     size_t safe_min_m_n = min_m_n;
+    fortran_int ld = m > 0 ? m : 1;
 
     if (!compute_urows_vtcolumns(jobz, m, n, &u_row_count, &vt_column_count))
         goto error;
@@ -2636,7 +2640,7 @@ init_@lapack_func@(GESDD_PARAMS_t *params,
         fortran_int do_query = -1;
         fortran_int rv;
         LAPACK(@lapack_func@)(&jobz, &m, &n,
-                              (void*)a, &m, (void*)s, (void*)u, &m,
+                              (void*)a, &ld, (void*)s, (void*)u, &ld,
                               (void*)vt, &vt_column_count,
                               &work_size_query, &do_query,
                               (void*)rwork,
@@ -2644,6 +2648,8 @@ init_@lapack_func@(GESDD_PARAMS_t *params,
         if (0!=rv)
             goto error;
         work_count = (fortran_int)((@typ@*)&work_size_query)->array[0];
+        /* Fix a bug in lapack 3.0.0 */
+        if(work_count == 0) work_count = 1;
         work_size = (size_t)work_count * sizeof(@ftyp@);
     }
 
@@ -2662,8 +2668,8 @@ init_@lapack_func@(GESDD_PARAMS_t *params,
     params->IWORK = iwork;
     params->M = m;
     params->N = n;
-    params->LDA = m;
-    params->LDU = m;
+    params->LDA = ld;
+    params->LDU = ld;
     params->LDVT = vt_column_count;
     params->LWORK = work_count;
     params->JOBZ = jobz;
