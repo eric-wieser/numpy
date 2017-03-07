@@ -1090,10 +1090,10 @@ static inline void
                               @basetyp@ *logdet)
 {
     fortran_int info = 0;
-    fortran_int m2 = m > 0 ? m : 1;  /* For the empty matrix case */
+    fortran_int lda = m > 0 ? m : 1;
     int i;
     /* note: done in place */
-    LAPACK(@cblas_type@getrf)(&m, &m, (void *)src, &m2, pivots, &info);
+    LAPACK(@cblas_type@getrf)(&m, &m, (void *)src, &lda, pivots, &info);
 
     if (info == 0)
     {
