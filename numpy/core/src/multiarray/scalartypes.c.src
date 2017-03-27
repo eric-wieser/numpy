@@ -3925,16 +3925,10 @@ initialize_casting_tables(void)
 #  if @to_isint@ && (_TO_BSIZE >= _FROM_BSIZE)
     /* int -> int */
     _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
-#  elif @to_isfloat@ && (_FROM_BSIZE < 8) && (_TO_BSIZE > _FROM_BSIZE)
+#  elif @to_isfloat@ && (_TO_BSIZE > _FROM_BSIZE)
     /* int -> float */
     _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
-#  elif @to_isfloat@ && (_FROM_BSIZE >= 8) && (_TO_BSIZE >= _FROM_BSIZE)
-    /* int -> float */
-    _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
-#  elif @to_iscomplex@ && (_FROM_BSIZE < 8) && (_TO_BSIZE > _FROM_BSIZE)
-    /* int -> complex */
-    _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
-#  elif @to_iscomplex@ && (_FROM_BSIZE >= 8) && (_TO_BSIZE >= _FROM_BSIZE)
+#  elif @to_iscomplex@ && (_TO_BSIZE > _FROM_BSIZE)
     /* int -> complex */
     _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
 #  endif
@@ -3947,16 +3941,10 @@ initialize_casting_tables(void)
 #  elif @to_isuint@ && (_TO_BSIZE >= _FROM_BSIZE)
     /* uint -> uint */
     _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
-#  elif @to_isfloat@ && (_FROM_BSIZE < 8) && (_TO_BSIZE > _FROM_BSIZE)
+#  elif @to_isfloat@ && (_TO_BSIZE > _FROM_BSIZE)
     /* uint -> float */
     _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
-#  elif @to_isfloat@ && (_FROM_BSIZE >= 8) && (_TO_BSIZE >= _FROM_BSIZE)
-    /* uint -> float */
-    _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
-#  elif @to_iscomplex@ && (_FROM_BSIZE < 8) && (_TO_BSIZE > _FROM_BSIZE)
-    /* uint -> complex */
-    _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
-#  elif @to_iscomplex@ && (_FROM_BSIZE >= 8) && (_TO_BSIZE >= _FROM_BSIZE)
+#  elif @to_iscomplex@ && (_TO_BSIZE > _FROM_BSIZE)
     /* uint -> complex */
     _npy_can_cast_safely_table[_FROM_NUM][_TO_NUM] = 1;
 #  endif
