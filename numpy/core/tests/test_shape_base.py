@@ -407,9 +407,15 @@ class TestBlock(TestCase):
                         [three_2d],
                         [four_1d],
                         [five_0d, six_1d],
-                        [zero_2d]])
+                        [zero_2d]], grid=False)
         assert_equal(result, expected)
 
+        assert_raises(ValueError,
+                block, [[one_2d, two_2d],
+                        [three_2d],
+                        [four_1d],
+                        [five_0d, six_1d],
+                        [zero_2d]])
     def test_nested(self):
         one = np.array([1, 1, 1])
         two = np.array([[2, 2, 2], [2, 2, 2], [2, 2, 2]])
@@ -430,7 +436,7 @@ class TestBlock(TestCase):
             ],
             [five, six],
             [zero]
-        ])
+        ], grid=False)
         expected = np.array([[1, 1, 1, 2, 2, 2],
                              [3, 3, 3, 2, 2, 2],
                              [4, 4, 4, 2, 2, 2],
@@ -525,6 +531,15 @@ class TestBlock(TestCase):
     def test_tuple(self):
         assert_raises_regex(TypeError, 'tuple', np.block, ([1, 2], [3, 4]))
         assert_raises_regex(TypeError, 'tuple', np.block, [(1, 2), (3, 4)])
+
+    def test_grid(self):
+        assert_raises_regex(ValueError, 'matching shapes', np.block,
+            [[np.zeros(2), np.zeros(3)],
+             [np.zeros(3), np.zeros(2)]])
+
+        assert_raises_regex(ValueError, 'same length', np.block,
+            [[np.zeros(2), np.zeros(3)],
+             [np.zeros(5)]])
 
 
 if __name__ == "__main__":
