@@ -409,8 +409,8 @@ PyArray_InitializeReduceResult(
 
 /*
  * This function executes all the standard NumPy reduction function
- * boilerplate code, just calling assign_identity and the appropriate
- * inner loop function where necessary.
+ * boilerplate code, just calling the appropriate inner loop function where
+ * necessary.
  *
  * operand     : The array to be reduced.
  * out         : NULL, or the array into which to place the result.
@@ -430,11 +430,11 @@ PyArray_InitializeReduceResult(
  *               with size one.
  * subok       : If true, the result uses the subclass of operand, otherwise
  *               it is always a base class ndarray.
- * assign_identity : If NULL, PyArray_InitializeReduceResult is used, otherwise
- *               this function is called to initialize the result to
+ * identity    : If Py_None, PyArray_InitializeReduceResult is used, otherwise
+ *               this value is used to initialize the result to
  *               the reduction's unit.
  * loop        : The loop which does the reduction.
- * data        : Data which is passed to assign_identity and the inner loop.
+ * data        : Data which is passed to the inner loop.
  * buffersize  : Buffer size for the iterator. For the default, pass in 0.
  * funcname    : The name of the reduction function, for error messages.
  *
@@ -456,7 +456,7 @@ PyUFunc_ReduceWrapper(PyArrayObject *operand, PyArrayObject *out,
                       npy_bool *axis_flags, int reorderable,
                       int keepdims,
                       int subok,
-                      PyArray_AssignReduceIdentityFunc *assign_identity,
+                      PyObject *identity,
                       PyArray_ReduceLoopFunc *loop,
                       void *data, npy_intp buffersize, const char *funcname)
 {
@@ -496,7 +496,7 @@ PyUFunc_ReduceWrapper(PyArrayObject *operand, PyArrayObject *out,
      * Initialize the result to the reduction unit if possible,
      * otherwise copy the initial values and get a view to the rest.
      */
-    if (assign_identity != NULL) {
+    if (identity != Py_None) {
         /*
          * If this reduction is non-reorderable, make sure there are
          * only 0 or 1 axes in axis_flags.
@@ -506,7 +506,7 @@ PyUFunc_ReduceWrapper(PyArrayObject *operand, PyArrayObject *out,
             goto fail;
         }
 
-        if (assign_identity(result, data) < 0) {
+        if (PyArray_FillWithScalar(result, identity) < 0) {
             goto fail;
         }
         op_view = operand;
