@@ -435,7 +435,7 @@ class _Recurser(object):
                 yield v
 
 
-def block(arrays):
+def block(arrays, grid=True):
     """
     Assemble an nd-array from nested lists of blocks.
 
@@ -463,6 +463,27 @@ def block(arrays):
         Elements shapes must match along the appropriate axes (without
         broadcasting), but leading 1s will be prepended to the shape as
         necessary to make the dimensions match.
+
+    grid : bool, optional
+        If True, the default, require that the blocks themselves lie in a grid.
+        Phrased another way, this requires that blocks must touch
+        corner-to-corner, never edge to edge. This enforces that the result of
+        ``np.block([[a, b], [c, d]])`` is of the form on the left::
+
+                AAbbb        AAbbb        AAbbb
+                AAbbb        AAbbb        ccbbb
+                ccDDD        ccccD        ccDDD
+
+                 ok!       forbidden    impossible
+                         by grid=True
+
+        As a result, it also prohibits ``np.block([[a, b], [c]])``. This flag
+        incurs extra checks, but is typically the desired behaviour, and
+        catches certain types of mistake.
+
+        This parameter only affects whether ValueError is raised - if the call
+        does not error with either True or False, then the results are
+        identical.
 
     Returns
     -------
@@ -496,19 +517,6 @@ def block(arrays):
     call. So ``np.block([[1, 2], [3, 4]])`` is equivalent to
     ``np.array([[1, 2], [3, 4]])``.
 
-    This function does not enforce that the blocks lie on a fixed grid.
-    ``np.block([[a, b], [c, d]])`` is not restricted to arrays of the form::
-
-        AAAbb
-        AAAbb
-        cccDD
-
-    But is also allowed to produce, for some ``a, b, c, d``::
-
-        AAAbb
-        AAAbb
-        cDDDD
-
     Since concatenation happens along the last axis first, `block` is _not_
     capable of producing the following directly::
 
@@ -517,7 +525,7 @@ def block(arrays):
         cccDD
 
     Matlab's "square bracket stacking", ``[A, B, ...; p, q, ...]``, is
-    equivalent to ``np.block([[A, B, ...], [p, q, ...]])``.
+    equivalent to ``np.block([[A, B, ...], [p, q, ...]], grid=False)``.
 
     Examples
     --------
@@ -654,6 +662,49 @@ def block(arrays):
         f_map=lambda xi: atleast_nd(xi, ndim),
         f_reduce=list
     )
+
+    if grid:
+        def same_or_empty(d, key, value):
+            if key not in d:
+                d[key] = value
+                return True
+            return d[key] == value
+
+        # check that the nested lists are not ragged
+        lengths = {}  # keyed by depth
+        for index, value, entering in rec.walk(arrays):
+            if not entering:
+                continue
+            depth = len(index)
+            if not same_or_empty(lengths, depth, len(value)):
+                raise ValueError(
+                    "len({}) == {}, expected {}. "
+                    "When grid=True, lists at the same depth must be the same "
+                    "length.".format(
+                        format_index(index),
+                        len(value),
+                        lengths[depth]
+                    )
+                )
+
+        # check that the shapes align:
+        dimension = {}  # keyed by axis, index
+        index_prefix = (0,)*first_axis
+        for index, value, entering in rec.walk(arrays):
+            if entering:
+                continue
+            for axis, i in enumerate(index_prefix + index):
+                if not same_or_empty(dimension, (axis, i), value.shape[axis]):
+                    raise ValueError(
+                        "{}.shape[{}] == {}, expected {}. "
+                        "When grid=True, elements in the same generalized row "
+                        "in the nth dimension must have matching shapes.".format(
+                            format_index(index),
+                            axis,
+                            value.shape[axis],
+                            dimension[axis, i]
+                        )
+                    )
 
     # concatenate innermost lists on the right, outermost on the left
     return rec.map_reduce(arrays,
