@@ -1667,6 +1667,10 @@ array_setstate(PyArrayObject *self, PyObject *args)
     if (nd < 0) {
         return NULL;
     }
+    if (PyDataType_UNSIZED(PyArray_DESCR(self))) {
+        PyErr_SetString(PyExc_ValueError, "Missing data-type size.");
+        return NULL;
+    }
     size = PyArray_MultiplyList(dimensions, nd);
     overflowed = npy_mul_with_overflow_intp(
         &nbytes, size, PyArray_DESCR(self)->elsize);

@@ -931,25 +931,31 @@ PyArray_NewFromDescr_int(PyTypeObject *subtype, PyArray_Descr *descr, int nd,
     }
 
     /* Check datatype element size */
-    nbytes = descr->elsize;
-    if (nbytes == 0) {
+    if (PyDataType_UNSIZED(descr)) {
         if (!PyDataType_ISFLEXIBLE(descr)) {
             PyErr_SetString(PyExc_TypeError, "Empty data-type");
             Py_DECREF(descr);
             return NULL;
-        } else if (PyDataType_ISSTRING(descr) && !allow_emptystring) {
+        }
+        else {
             PyArray_DESCR_REPLACE(descr);
             if (descr == NULL) {
                 return NULL;
             }
-            if (descr->type_num == NPY_STRING) {
-                nbytes = descr->elsize = 1;
-            }
-            else {
-                nbytes = descr->elsize = sizeof(npy_ucs4);
+            switch (descr->type_num) {
+                case NPY_STRING:
+                    descr->elsize = 1;
+                    break;
+                case NPY_UNICODE:
+                    descr->elsize = sizeof(npy_ucs4);
+                    break;
+                case NPY_VOID:
+                default:
+                    descr->elsize = 0;
             }
         }
     }
+    nbytes = descr->elsize;
 
     /* Check dimensions and multiply them to nbytes */
     is_empty = 0;
@@ -1251,7 +1257,7 @@ PyArray_New(PyTypeObject *subtype, int nd, npy_intp *dims, int type_num,
     if (descr == NULL) {
         return NULL;
     }
-    if (descr->elsize == 0) {
+    if (PyDataType_UNSIZED(descr)) {
         if (itemsize < 1) {
             PyErr_SetString(PyExc_ValueError,
                             "data type must provide an itemsize");
@@ -1619,7 +1625,7 @@ PyArray_GetArrayParamsFromObject(PyObject *op,
         }
 
         /* If the type is flexible, determine its size */
-        if ((*out_dtype)->elsize == 0 &&
+        if (PyDataType_UNSIZED(*out_dtype) &&
                             PyTypeNum_ISEXTENDED((*out_dtype)->type_num)) {
             int itemsize = 0;
             int string_type = 0;
@@ -3407,6 +3413,13 @@ PyArray_FromFile(FILE *fp, PyArray_Descr *dtype, npy_intp num, char *sep)
         Py_DECREF(dtype);
         return NULL;
     }
+    if (PyDataType_UNSIZED(dtype)) {
+        PyErr_SetString(PyExc_ValueError,
+                "Flexible dtypes must have an explicit size");
+        Py_DECREF(dtype);
+        return NULL;
+    }
+
     if (dtype->elsize == 0) {
         /* Nothing to read, just create an empty array of the requested type */
         return PyArray_NewFromDescr_int(&PyArray_Type,
@@ -3468,7 +3481,7 @@ PyArray_FromBuffer(PyObject *buf, PyArray_Descr *type,
         Py_DECREF(type);
         return NULL;
     }
-    if (type->elsize == 0) {
+    if (PyDataType_UNSIZED(type)) {
         PyErr_SetString(PyExc_ValueError,
                         "itemsize cannot be zero in type");
         Py_DECREF(type);
@@ -3686,7 +3699,7 @@ PyArray_FromIter(PyObject *obj, PyArray_Descr *dtype, npy_intp count)
         goto done;
     }
     elcount = (count < 0) ? 0 : count;
-    if ((elsize = dtype->elsize) == 0) {
+    if ((elsize = dtype->elsize) == -1) {
         PyErr_SetString(PyExc_ValueError,
                 "Must specify length when using variable-size data-type.");
         goto done;

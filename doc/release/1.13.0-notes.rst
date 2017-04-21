@@ -92,6 +92,18 @@ invokes``ndarray.__getslice__`` (e.g. through ``super(...).__getslice__``) will
 now issue a DeprecationWarning - ``.__getitem__(slice(start, end))`` should be
 used instead.
 
+``PyArray_Descr.elsize`` is now ``-1`` for unsized flexible dtypes
+------------------------------------------------------------------
+Previously it was ``0`` - but that made it impossible to distinguish unsized
+types (``U``) from sized-to-0 types (``U0``). A new C macro,
+``PyDataType_UNSIZED(descr)``, exists to check for this.
+
+From the python side, this manifests itself as::
+
+    >>> np.dtype(str).itemsize  # None
+    >>> np.dtype('U').itemsize  # None
+    >>> np.dtype('U0').itemsize
+    0
 
 New Features
 ============
@@ -253,6 +265,11 @@ regarding "workspace" sizes, and in some places may use faster algorithms.
 ------------------------------------------------------------------------------
 This now works on empty arrays, returning 0, and can reduce over multiple axes.
 Previously, a ``ValueError`` was thrown in these cases.
+
+Empty flexible dtypes, such as ``S0``, ``U0``, and ``V0``, are now supported
+----------------------------------------------------------------------------
+Previously, these were equivalent to ``S``, ``U``, and ``V``, which described
+a dtype that was not yet assigned a size.
 
 Changes
 =======
