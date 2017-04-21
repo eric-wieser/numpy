@@ -145,6 +145,18 @@ Indexing MaskedArrays/Constants with ``...`` (ellipsis) now returns MaskedArray
 This behavior mirrors that of np.ndarray, and accounts for nested arrays in
 MaskedArrays of object dtype, and ellipsis combined with other forms of
 indexing.
+``PyArray_Descr.elsize`` is now ``-1`` for unsized flexible dtypes
+------------------------------------------------------------------
+Previously it was ``0`` - but that made it impossible to distinguish unsized
+types (``U``) from sized-to-0 types (``U0``). A new C macro,
+``PyDataType_UNSIZED(descr)``, exists to check for this.
+
+From the python side, this manifests itself as::
+
+    >>> np.dtype(str).itemsize  # None
+    >>> np.dtype('U').itemsize  # None
+    >>> np.dtype('U0').itemsize
+    0
 
 C API changes
 =============
@@ -447,6 +459,48 @@ Previously, a ``ValueError`` was thrown in these cases.
 Better ``repr`` of object arrays
 --------------------------------
 Object arrays that contain themselves no longer cause a recursion error.
+Empty flexible dtypes, such as ``S0``, ``U0``, and ``V0``, are now supported
+----------------------------------------------------------------------------
+Previously, these were equivalent to ``S``, ``U``, and ``V``, which described
+a dtype that was not yet assigned a size.
+
+Changes
+=======
+
+Ufunc behavior for overlapping inputs
+-------------------------------------
+
+Operations where ufunc input and output operands have memory overlap
+produced undefined results in previous Numpy versions, due to data
+dependency issues. In Numpy 1.13.0, results from such operations are
+now defined to be the same as for equivalent operations where there is
+no memory overlap.
+
+Operations affected now make temporary copies, as needed to eliminate
+data dependency. As detecting these cases is computationally
+expensive, a heuristic is used, which may in rare cases result to
+needless temporary copies.  For operations where the data dependency
+is simple enough for the heuristic to analyze, temporary copies will
+not be made even if the arrays overlap, if it can be deduced copies
+are not necessary.  As an example,``np.add(a, b, out=a)`` will not
+involve copies.
+
+To illustrate a previously undefined operation::
+
+    >>> x = np.arange(16).astype(float)
+    >>> np.add(x[1:], x[:-1], out=x[1:])
+
+In Numpy 1.13.0 the last line is guaranteed to be equivalent to::
+
+    >>> np.add(x[1:].copy(), x[:-1].copy(), out=x[1:])
+
+A similar operation with simple non-problematic data dependence is::
+
+    >>> x = np.arange(16).astype(float)
+    >>> np.add(x[1:], x[:-1], out=x[:-1])
+
+It will continue to produce the same results as in previous Numpy
+versions, and will not involve unnecessary temporary copies.
 
 Object arrays that contain ``list`` objects are now printed in a way that makes
 clear the difference between a 2d object array, and a 1d object array of lists.

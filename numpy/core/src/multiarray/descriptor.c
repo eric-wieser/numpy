@@ -267,7 +267,7 @@ _convert_from_tuple(PyObject *obj)
      * We get here if res was NULL but errflag wasn't set
      * --- i.e. the conversion to a data-descr failed in _use_inherit
      */
-    if (type->elsize == 0) {
+    if (PyDataType_UNSIZED(type)) {
         /* interpret next item as a typesize */
         int itemsize = PyArray_PyIntAsInt(PyTuple_GET_ITEM(obj,1));
 
@@ -354,7 +354,7 @@ _convert_from_tuple(PyObject *obj)
             goto fail;
         }
         newdescr = PyArray_DescrNewFromType(NPY_VOID);
-        if (newdescr == NULL) {
+        if (PyDataType_UNSIZED(newdescr)) {
             goto fail;
         }
         newdescr->elsize = nbytes;
@@ -846,12 +846,12 @@ _use_inherit(PyArray_Descr *type, PyObject *newobj, int *errflag)
     if (new == NULL) {
         goto fail;
     }
-    if (new->elsize && new->elsize != conv->elsize) {
+    if (new->elsize != -1 && new->elsize != conv->elsize) {
         PyErr_SetString(PyExc_ValueError,
                 "mismatch in size of old and new data-descriptor");
         goto fail;
     }
-    if (new->elsize && invalid_union_object_dtype(new, conv)) {
+    if (new->elsize != -1 && invalid_union_object_dtype(new, conv)) {
         goto fail;
     }
     new->elsize = conv->elsize;
@@ -1359,7 +1359,7 @@ PyArray_DescrConverter(PyObject *obj, PyArray_Descr **at)
 {
     int check_num = NPY_NOTYPE + 10;
     PyObject *item;
-    int elsize = 0;
+    int elsize = -1;
     char endian = '=';
 
     *at = NULL;
@@ -1532,7 +1532,7 @@ PyArray_DescrConverter(PyObject *obj, PyArray_Descr **at)
                         break;
 
                     default:
-                        if (elsize == 0) {
+                        if (elsize == -1) {
                             check_num = NPY_NOTYPE+10;
                         }
                         /* Support for generic processing c8, i4, f8, etc...*/
@@ -1646,7 +1646,7 @@ finish:
         goto fail;
     }
 
-    if (((*at)->elsize == 0) && (elsize != 0)) {
+    if (PyDataType_UNSIZED(*at) && (elsize != -1)) {
         PyArray_DESCR_REPLACE(*at);
         (*at)->elsize = elsize;
     }
@@ -1896,7 +1896,7 @@ arraydescr_typename_get(PyArray_Descr *self)
         len -= suffix_len;
         res = PyUString_FromStringAndSize(typeobj->tp_name+prefix_len, len);
     }
-    if (PyTypeNum_ISFLEXIBLE(self->type_num) && self->elsize != 0) {
+    if (PyTypeNum_ISFLEXIBLE(self->type_num) && self->elsize != -1) {
         PyObject *p;
         p = PyUString_FromFormat("%d", self->elsize * 8);
         PyUString_ConcatAndDel(&res, p);
@@ -3551,7 +3551,7 @@ arraydescr_construction_repr(PyArray_Descr *dtype, int includealignflag,
             return PyUString_FromString("'O'");
 
         case NPY_STRING:
-            if (dtype->elsize == 0) {
+            if (PyDataType_UNSIZED(dtype)) {
                 return PyUString_FromString("'S'");
             }
             else {
@@ -3559,7 +3559,7 @@ arraydescr_construction_repr(PyArray_Descr *dtype, int includealignflag,
             }
 
         case NPY_UNICODE:
-            if (dtype->elsize == 0) {
+            if (PyDataType_UNSIZED(dtype)) {
                 return PyUString_FromFormat("'%sU'", byteorder);
             }
             else {
@@ -3568,7 +3568,7 @@ arraydescr_construction_repr(PyArray_Descr *dtype, int includealignflag,
             }
 
         case NPY_VOID:
-            if (dtype->elsize == 0) {
+            if (PyDataType_UNSIZED(dtype)) {
                 return PyUString_FromString("'V'");
             }
             else {
