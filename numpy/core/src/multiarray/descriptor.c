@@ -510,6 +510,11 @@ _convert_from_array_descr(PyObject *obj, int align)
         if (ret == NPY_FAIL) {
             goto fail;
         }
+        if (PyDataType_UNSIZED(conv)) {
+            PyErr_SetString(PyExc_ValueError,
+                "Flexible dtypes within compound dtypes must have a size");
+            goto fail;
+        }
         if ((PyDict_GetItem(fields, name) != NULL)
              || (title
 #if defined(NPY_PY3K)
@@ -651,6 +656,13 @@ _convert_from_list(PyObject *obj, int align)
             ret = PyArray_DescrConverter(PyList_GET_ITEM(obj, i), &conv);
         }
         if (ret == NPY_FAIL) {
+            Py_DECREF(tup);
+            Py_DECREF(key);
+            goto fail;
+        }
+        if (PyDataType_UNSIZED(conv)) {
+            PyErr_SetString(PyExc_ValueError,
+                "Flexible dtypes within compound dtypes must have a size");
             Py_DECREF(tup);
             Py_DECREF(key);
             goto fail;
@@ -1963,7 +1975,7 @@ arraydescr_ndim_get(PyArray_Descr *self)
 static PyObject *
 arraydescr_itemsize_get(PyArray_Descr *self)
 {
-    if (self->elsize == -1) {
+    if (PyDataType_UNSIZED(self)) {
         Py_RETURN_NONE;
     }
     return PyInt_FromLong(self->elsize);
