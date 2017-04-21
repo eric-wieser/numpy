@@ -528,7 +528,7 @@ class TestDateTime(TestCase):
         dt_b[...] = str_a
         assert_equal(dt_a, dt_b)
         # Datetime to string
-        assert_equal(str_a, dt_a.astype('S0'))
+        assert_equal(str_a, dt_a.astype('S'))
         str_b[...] = dt_a
         assert_equal(str_a, str_b)
 
