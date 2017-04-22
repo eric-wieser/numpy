@@ -13,6 +13,7 @@
 #include "npy_import.h"
 #include "ufunc_override.h"
 #include "common.h"
+#include "templ_common.h" /* for npy_mul_with_overflow_intp */
 #include "ctors.h"
 #include "calculation.h"
 #include "convert_datatype.h"
@@ -1624,6 +1625,8 @@ array_setstate(PyArrayObject *self, PyObject *args)
     Py_ssize_t len;
     npy_intp size, dimensions[NPY_MAXDIMS];
     int nd;
+    npy_intp nbytes;
+    int overflowed;
 
     PyArrayObject_fields *fa = (PyArrayObject_fields *)self;
 
@@ -1665,11 +1668,9 @@ array_setstate(PyArrayObject *self, PyObject *args)
         return NULL;
     }
     size = PyArray_MultiplyList(dimensions, nd);
-    if (PyArray_DESCR(self)->elsize == 0) {
-        PyErr_SetString(PyExc_ValueError, "Invalid data-type size.");
-        return NULL;
-    }
-    if (size < 0 || size > NPY_MAX_INTP / PyArray_DESCR(self)->elsize) {
+    overflowed = npy_mul_with_overflow_intp(
+        &nbytes, size, PyArray_DESCR(self)->elsize);
+    if (size < 0 || overflowed) {
         PyErr_NoMemory();
         return NULL;
     }
@@ -1713,7 +1714,7 @@ array_setstate(PyArrayObject *self, PyObject *args)
             return NULL;
         }
 
-        if ((len != (PyArray_DESCR(self)->elsize * size))) {
+        if (len != nbytes) {
             PyErr_SetString(PyExc_ValueError,
                             "buffer size does not"  \
                             " match array size");
@@ -1775,7 +1776,7 @@ array_setstate(PyArrayObject *self, PyObject *args)
             }
             if (swap) {
                 /* byte-swap on pickle-read */
-                npy_intp numels = num / PyArray_DESCR(self)->elsize;
+                npy_intp numels = PyArray_SIZE(self);
                 PyArray_DESCR(self)->f->copyswapn(PyArray_DATA(self),
                                         PyArray_DESCR(self)->elsize,
                                         datastr, PyArray_DESCR(self)->elsize,
