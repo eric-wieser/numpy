@@ -472,24 +472,19 @@ array_descr_set(PyArrayObject *self, PyObject *arg)
         Py_DECREF(safe);
     }
 
-    if (newtype->elsize == 0) {
-        /* Allow a void view */
-        if (newtype->type_num == NPY_VOID) {
-            PyArray_DESCR_REPLACE(newtype);
-            if (newtype == NULL) {
-                return -1;
-            }
-            newtype->elsize = PyArray_DESCR(self)->elsize;
-        }
-        /* But no other flexible types */
-        else {
-            PyErr_SetString(PyExc_TypeError,
-                    "data-type must not be 0-sized");
-            Py_DECREF(newtype);
+    /*
+     * Treat V0 as resizable void - unless the destination is already V0, then
+     * don't allow np.void to be duplicated
+     */
+    if (newtype->type_num == NPY_VOID &&
+            newtype->elsize == 0 &&
+            PyArray_DESCR(self)->elsize != 0) {
+        PyArray_DESCR_REPLACE(newtype);
+        if (newtype == NULL) {
             return -1;
         }
+        newtype->elsize = PyArray_DESCR(self)->elsize;
     }
-
 
     if ((newtype->elsize != PyArray_DESCR(self)->elsize) &&
             (PyArray_NDIM(self) == 0 ||
@@ -521,7 +516,8 @@ array_descr_set(PyArrayObject *self, PyObject *arg)
          * if it is compatible increase the size of the
          * dimension at end (or at the front for NPY_ARRAY_F_CONTIGUOUS)
          */
-        if (PyArray_DESCR(self)->elsize % newtype->elsize != 0) {
+        if (newtype->elsize == 0
+                || PyArray_DESCR(self)->elsize % newtype->elsize != 0) {
             goto fail;
         }
         newdim = PyArray_DESCR(self)->elsize / newtype->elsize;
