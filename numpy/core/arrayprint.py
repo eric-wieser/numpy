@@ -408,7 +408,7 @@ def _recursive_guard(fillvalue='...'):
 @_recursive_guard()
 def array2string(a, max_line_width=None, precision=None,
                  suppress_small=None, separator=' ', prefix="",
-                 style=np._NoValue, formatter=None):
+                 style=None, formatter=None):
     """
     Return a string representation of an array.
 
@@ -432,12 +432,11 @@ def array2string(a, max_line_width=None, precision=None,
 
           'prefix(' + array2string(a) + ')'
 
-        The length of the prefix string is used to align the
-        output correctly.
-    style : _NoValue, optional
-        Has no effect, do not use.
-
-        .. deprecated:: 1.14.0
+        The length of the prefix string is used to align the output correctly.
+    style : None or function, optional
+        Controls the printing of 0d arrays. If `None`, prints the 0d array's
+        element using the usual array formatting. Otherwise, `style` should be
+        a function that accepts a numpy scalar and returns a string.
     formatter : dict of callables, optional
         If not None, the keys should indicate the type(s) that the respective
         formatting function applies to.  Callables should return a string.
@@ -504,11 +503,6 @@ def array2string(a, max_line_width=None, precision=None,
 
     """
 
-    # Deprecation 05-16-2017  v1.14
-    if style is not np._NoValue:
-        warnings.warn("'style' argument is deprecated and no longer functional",
-                      DeprecationWarning, stacklevel=3)
-
     if max_line_width is None:
         max_line_width = _line_width
 
@@ -521,7 +515,11 @@ def array2string(a, max_line_width=None, precision=None,
     if formatter is None:
         formatter = _formatter
 
-    if a.size == 0:
+    # the ``dtype.names is None`` check is to avoid co-recursion with
+    # voidtype_str, which upcasts structured scalars to 0d arrays
+    if style is not None and a.shape == () and a.dtype.names is None:
+        return style(a[()])
+    elif a.size == 0:
         # treat as a null array if any of shape elements == 0
         lst = "[]"
     else:

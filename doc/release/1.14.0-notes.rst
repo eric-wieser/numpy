@@ -203,9 +203,31 @@ Changes
 ----------------------------------------------------
 0d arrays now use the array2string formatters to print their elements, like
 other arrays. The ``style`` argument of ``array2string`` is now non-functional.
+0d array printing changed to be more consistent with scalars/ndarrays
+---------------------------------------------------------------------
+Previously the ``str`` and ``repr`` of 0d arrays had idiosyncratic
+implementations which by default returned ``str(a.item())`` and ``'array(' +
+repr(a.item()) + ')'`` respectively for 0d array ``a``. This is unlike both
+numpy scalars and higher dimension ndarrays.
+
+Instead, the ``str`` of a 0d array now prints like a numpy scalar as
+``str(a[()])`` and the ``repr`` prints like ndarrays using ``formatter(a[()])``,
+where  ``formatter`` is specified using ``np.set_printoptions``.
+
+The ``style`` argument of ``np.array2string`` now accepts the value ``None``,
+(the new default), which causes 0d arrays to be printed using the specified
+``formatter``. Otherwise ``style`` should be a function which accepts a numpy
+scalar and returns a string, and ``style(a[()])`` is returned.
+
+User-defined types now need to implement ``__str__`` and ``__repr__``
+---------------------------------------------------------------------
+Previously, user-defined types could fall back to a default implementation of
+``__str__`` and ``__repr__`` implemented in numpy, but this has now been
+removed. Instead, user-defined types will now fall back to the python default
+``object.__str__`` and ``object.__repr__``.
 
 Integer scalars are now unaffected by ``np.set_string_function``
 ----------------------------------------------------------------
-Previously the str/repr of integer scalars could be controlled by
+Previously the ``str`` and ``repr`` of integer scalars could be controlled by
 ``np.set_string_function``, unlike most other numpy scalars. This is no longer
 the case.
