@@ -85,6 +85,7 @@ from __future__ import division, absolute_import, print_function
 import types as _types
 import sys
 import numbers
+import warnings
 
 from numpy.compat import bytes, long
 from numpy.core.multiarray import (
@@ -751,14 +752,20 @@ def issubdtype(arg1, arg2):
     False
 
     """
-    if issubclass_(arg2, generic):
-        return issubclass(dtype(arg1).type, arg2)
-    mro = dtype(arg2).type.mro()
-    if len(mro) > 1:
-        val = mro[1]
-    else:
-        val = mro[0]
-    return issubclass(dtype(arg1).type, val)
+
+    if not issubclass_(arg1, generic):
+        arg1 = dtype(arg1).type
+    if not issubclass_(arg2, generic):
+        arg2_orig = arg2
+        arg2 = dtype(arg2).type
+        if not isinstance(arg2_orig, dtype):
+            # weird deprecated behaviour, that tried to infer np.floating from
+            # float, and similar less obvious things, such as np.generic from
+            # basestring
+            mro = arg2.mro()
+            arg2 = mro[1] if len(mro) > 1 else mro[0]
+
+    return issubclass(arg1, arg2)
 
 
 # This dictionary allows look up based on any alias for an array data-type
