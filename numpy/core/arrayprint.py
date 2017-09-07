@@ -1054,23 +1054,17 @@ set_string_function(array_str, 0)
 set_string_function(array_repr, 1)
 
 
-# This function implements the repr for structured-void-scalars. It is called
+# This function implements the repr for structured-void scalars. It is called
 # from the scalartypes.c.src code. It is placed here because it uses the
-# array-printing functions above for subarrays.
-def _void_repr(x):
-    reprs = []
-    for xi in x:
-        # subarrays get special formatting
-        if isinstance(xi, np.ndarray):
-            format_function = _get_format_function(ravel(xi),
-                                                   _float_output_precision,
-                                                   _float_output_suppress_small,
-                                                   _formatter)
-            reprs.append(SubArrayFormat(format_function)(xi))
-        else:
-            reprs.append(repr(xi))
-
-    if len(x) == 1:
-        return "(" + ', '.join(reprs) + ",)"
-    else:
-        return "(" + ', '.join(reprs) + ")"
+# elementwise formatters above.
+def _void_scalar_repr(x):
+    format_functions = []
+    for field_name in x.dtype.names:
+        format_function = _get_format_function(ravel(x[field_name]),
+                                               _float_output_precision,
+                                               _float_output_suppress_small,
+                                               _formatter)
+        if x.dtype[field_name].shape != ():
+            format_function = SubArrayFormat(format_function)
+        format_functions.append(format_function)
+    return StructureFormat(format_functions)(x)

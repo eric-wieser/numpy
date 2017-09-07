@@ -613,7 +613,8 @@ voidtype_str(PyObject *self)
     if (PyDataType_HASFIELDS(((PyVoidScalarObject*)self)->descr)) {
         static PyObject *reprfunc = NULL;
 
-        npy_cache_import("numpy.core.arrayprint", "_void_repr", &reprfunc);
+        npy_cache_import("numpy.core.arrayprint", 
+                         "_void_scalar_repr", &reprfunc);
         if (reprfunc == NULL) {
             return NULL;
         }
