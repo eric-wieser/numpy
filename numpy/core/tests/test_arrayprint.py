@@ -322,7 +322,7 @@ class TestPrintOptions(object):
         a = np.ones(2, dtype='f,f')
         assert_equal(repr(a), "array([(1., 1.), (1., 1.)],\n"
                               "      dtype=[('f0', '<f4'), ('f1', '<f4')])")
-        assert_equal(repr(a[0]), "(1., 1.)")
+        assert_equal(repr(a[0]), "(1.0, 1.0)")
 
 
 def test_unicode_object_array():

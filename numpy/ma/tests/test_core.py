@@ -734,7 +734,7 @@ class TestMaskedArray(object):
                                              [False, False, True]],
                                      False),
                              dtype = "int, (2,3)float, float")
-        control = "(0, [[--, 0.0, --], [0.0, 0.0, --]],  0.)"
+        control = "(0, [[--, 0.0, --], [0.0, 0.0, --]], 0.0)"
         assert_equal(str(t_2d0), control)
 
 
@@ -866,8 +866,8 @@ class TestMaskedArray(object):
         t_2d = masked_array(data = [([[1, 2], [3,4]], 1)],
                             mask = [([[False, True], [True, False]], False)],
                             dtype = [('a', '<i4', (2,2)), ('b', float)])
-        assert_(str(t_2d[0]) == "([[1, --], [--, 4]],  1.)")
-        assert_(repr(t_2d[0]) == "([[1, --], [--, 4]],  1.)")
+        assert_(str(t_2d[0]) == "([[1, --], [--, 4]], 1.0)")
+        assert_(repr(t_2d[0]) == "([[1, --], [--, 4]], 1.0)")
 
         t_ne = masked_array(data=[(1, (1, 1))],
                             mask=[(True, (True, False))],
