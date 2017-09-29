@@ -3821,11 +3821,7 @@ class MaskedArray(ndarray):
             _new._mask = _mask.compress(condition, axis=axis)
         return _new
 
-    def __str__(self):
-        """
-        String representation.
-
-        """
+    def __insert_masked_print(self):
         if masked_print_option.enabled():
             mask = self._mask
             if mask is nomask:
@@ -3850,7 +3846,10 @@ class MaskedArray(ndarray):
                 _recursive_printoption(res, mask, masked_print_option)
         else:
             res = self.filled(self.fill_value)
-        return str(res)
+        return res
+
+    def __str__(self):
+        return str(self.__insert_masked_print())
 
     def __repr__(self):
         """
@@ -3863,9 +3862,17 @@ class MaskedArray(ndarray):
         else:
             name = self._baseclass.__name__
 
-        parameters = dict(name=name, nlen=" " * len(name),
-                          data=str(self), mask=str(self._mask),
-                          fill=str(self.fill_value), dtype=str(self.dtype))
+        # populate the lazy-loaded fill value
+        self.fill_value
+
+        parameters = dict(
+            name=name,
+            nlen=" " * len(name),
+            data=np.array2string(self.__insert_masked_print(), separator=", "),
+            mask=np.array2string(self._mask, separator=", "),
+            fill=np.array2string(self._fill_value, separator=", "),
+            dtype=str(self.dtype)
+        )
         if self.dtype.names:
             if n <= 1:
                 return _print_templates['short_flx'] % parameters
