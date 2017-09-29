@@ -487,7 +487,7 @@ class TestMaskedArray(object):
         assert_equal(str(a), '[0 -- 2]')
         assert_equal(repr(a), 'masked_array(data = [0 -- 2],\n'
                               '             mask = [False  True False],\n'
-                              '       fill_value = 999999)\n')
+                              '       fill_value = 999999)')
 
         a = np.ma.arange(2000)
         a[1:50] = np.ma.masked
@@ -495,7 +495,7 @@ class TestMaskedArray(object):
             repr(a),
             'masked_array(data = [0 -- -- ..., 1997 1998 1999],\n'
             '             mask = [False  True  True ..., False False False],\n'
-            '       fill_value = 999999)\n'
+            '       fill_value = 999999)'
         )
 
     def test_pickling(self):

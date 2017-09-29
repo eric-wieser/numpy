@@ -25,6 +25,7 @@ from __future__ import division, absolute_import, print_function
 import sys
 import operator
 import warnings
+import textwrap
 from functools import reduce
 
 if sys.version_info[0] >= 3:
@@ -2427,32 +2428,30 @@ def _recursive_printoption(result, mask, printopt):
         np.copyto(result, printopt, where=mask)
     return
 
-_print_templates = dict(long_std="""\
-masked_%(name)s(data =
- %(data)s,
-       %(nlen)s mask =
- %(mask)s,
- %(nlen)s fill_value = %(fill)s)
-""",
-                        short_std="""\
-masked_%(name)s(data = %(data)s,
-       %(nlen)s mask = %(mask)s,
-%(nlen)s  fill_value = %(fill)s)
-""",
-                        long_flx="""\
-masked_%(name)s(data =
- %(data)s,
-       %(nlen)s mask =
- %(mask)s,
-%(nlen)s  fill_value = %(fill)s,
-      %(nlen)s dtype = %(dtype)s)
-""",
-                        short_flx="""\
-masked_%(name)s(data = %(data)s,
-%(nlen)s        mask = %(mask)s,
-%(nlen)s  fill_value = %(fill)s,
-%(nlen)s       dtype = %(dtype)s)
-""")
+_print_templates = dict(
+    long_std=textwrap.dedent("""\
+        masked_%(name)s(data =
+         %(data)s,
+        %(nlen)s        mask =
+         %(mask)s,
+        %(nlen)s  fill_value = %(fill)s)"""),
+    long_flx=textwrap.dedent("""\
+        masked_%(name)s(data =
+         %(data)s,
+        %(nlen)s        mask =
+         %(mask)s,
+        %(nlen)s  fill_value = %(fill)s,
+        %(nlen)s       dtype = %(dtype)s)"""),
+    short_std=textwrap.dedent("""\
+        masked_%(name)s(data = %(data)s,
+        %(nlen)s        mask = %(mask)s,
+        %(nlen)s  fill_value = %(fill)s)"""),
+    short_flx=textwrap.dedent("""\
+        masked_%(name)s(data = %(data)s,
+        %(nlen)s        mask = %(mask)s,
+        %(nlen)s  fill_value = %(fill)s,
+        %(nlen)s       dtype = %(dtype)s)""")
+)
 
 ###############################################################################
 #                          MaskedArray class                                  #
