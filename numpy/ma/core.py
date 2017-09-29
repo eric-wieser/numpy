@@ -3856,7 +3856,6 @@ class MaskedArray(ndarray):
         Literal string representation.
 
         """
-        n = self.ndim
         if self._baseclass is np.ndarray:
             name = 'array'
         else:
@@ -3865,21 +3864,30 @@ class MaskedArray(ndarray):
         # populate the lazy-loaded fill value
         self.fill_value
 
+        is_long = self.ndim > 1
+        is_structured = bool(self.dtype.names)
+
+        prefix=' ' if is_long else 'masked_{}(data = '.format(name)
         parameters = dict(
             name=name,
             nlen=" " * len(name),
-            data=np.array2string(self.__insert_masked_print(), separator=", "),
-            mask=np.array2string(self._mask, separator=", "),
+            data=np.array2string(
+                self.__insert_masked_print(),
+                separator=", ", prefix=prefix
+            ),
+            mask=np.array2string(
+                self._mask,
+                separator=", ", prefix=prefix
+            ),
             fill=np.array2string(self._fill_value, separator=", "),
-            dtype=str(self.dtype)
+            dtype=str(self.dtype),
         )
-        if self.dtype.names:
-            if n <= 1:
-                return _print_templates['short_flx'] % parameters
-            return _print_templates['long_flx'] % parameters
-        elif n <= 1:
-            return _print_templates['short_std'] % parameters
-        return _print_templates['long_std'] % parameters
+
+        key = '{}_{}'.format(
+            'long' if is_long else 'short',
+            'flx' if is_structured else 'std'
+        )
+        return _print_templates[key] % parameters
 
     def _delegate_binop(self, other):
         # This emulates the logic in
