@@ -348,13 +348,13 @@ class TestSubclassing(object):
         x = np.arange(5)
         xsub = SubArray(x)
         mxsub = masked_array(xsub, mask=[True, False, True, False, False])
-        assert_(str(mxsub) == '[-- 1 -- 3 4]')
+        assert_equal(str(mxsub), '[-- 1 -- 3 4]')
 
         xcsub = ComplicatedSubArray(x)
         assert_raises(ValueError, xcsub.__setitem__, 0,
                       np.ma.core.masked_print_option)
         mxcsub = masked_array(xcsub, mask=[True, False, True, False, False])
-        assert_(str(mxcsub) == 'myprefix [-- 1 -- 3 4] mypostfix')
+        assert_equal(str(mxcsub), 'myprefix [-- 1 -- 3 4] mypostfix')
 
     def test_pure_subclass_info_preservation(self):
         # Test that ufuncs and methods conserve extra information consistently;
@@ -363,10 +363,10 @@ class TestSubclassing(object):
         arr2 = SubMaskedArray(data=[0,1,2,3,4,5])
         diff1 = np.subtract(arr1, arr2)
         assert_('info' in diff1._optinfo)
-        assert_(diff1._optinfo['info'] == 'test')
+        assert_equal(diff1._optinfo['info'], 'test')
         diff2 = arr1 - arr2
         assert_('info' in diff2._optinfo)
-        assert_(diff2._optinfo['info'] == 'test')
+        assert_equal(diff2._optinfo['info'], 'test')
 
 
 ###############################################################################
