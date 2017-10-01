@@ -258,86 +258,106 @@ def _object_format(o):
 def repr_format(x):
     return repr(x)
 
-def _get_formatdict(data, **opt):
-    prec, supp, sign = opt['precision'], opt['suppress'], opt['sign']
 
-    # wrapped in lambdas to avoid taking a code path with the wrong type of data
-    formatdict = {'bool': lambda: BoolFormat(data),
-                  'int': lambda: IntegerFormat(data),
-                  'float': lambda: FloatFormat(data, prec, supp, sign),
-                  'longfloat': lambda: LongFloatFormat(prec),
-                  'complexfloat': lambda: ComplexFormat(data, prec, supp, sign),
-                  'longcomplexfloat': lambda: LongComplexFormat(prec),
-                  'datetime': lambda: DatetimeFormat(data),
-                  'timedelta': lambda: TimedeltaFormat(data),
-                  'object': lambda: _object_format,
-                  'numpystr': lambda: repr_format,
-                  'str': lambda: str}
+class DictFormatProvider(object):
+    def __init__(self, funcs):
+        self.funcs = funcs
 
-    # we need to wrap values in `formatter` in a lambda, so that the interface
-    # is the same as the above values.
-    def indirect(x):
-        return lambda: x
+    def extend(self, extra_funcs):
 
-    formatter = opt['formatter']
-    if formatter is not None:
-        fkeys = [k for k in formatter.keys() if formatter[k] is not None]
+        def indirect(x):
+            return lambda data, **opts: x
+
+        new_funcs = self.funcs.copy()
+        fkeys = [k for k in extra_funcs.keys() if extra_funcs[k] is not None]
         if 'all' in fkeys:
-            for key in formatdict.keys():
-                formatdict[key] = indirect(formatter['all'])
+            for key in new_funcs.keys():
+                new_funcs[key] = indirect(extra_funcs['all'])
         if 'int_kind' in fkeys:
             for key in ['int']:
-                formatdict[key] = indirect(formatter['int_kind'])
+                new_funcs[key] = indirect(extra_funcs['int_kind'])
         if 'float_kind' in fkeys:
             for key in ['float', 'longfloat']:
-                formatdict[key] = indirect(formatter['float_kind'])
+                new_funcs[key] = indirect(extra_funcs['float_kind'])
         if 'complex_kind' in fkeys:
             for key in ['complexfloat', 'longcomplexfloat']:
-                formatdict[key] = indirect(formatter['complex_kind'])
+                new_funcs[key] = indirect(extra_funcs['complex_kind'])
         if 'str_kind' in fkeys:
             for key in ['numpystr', 'str']:
-                formatdict[key] = indirect(formatter['str_kind'])
-        for key in formatdict.keys():
+                new_funcs[key] = indirect(extra_funcs['str_kind'])
+        for key in new_funcs.keys():
             if key in fkeys:
-                formatdict[key] = indirect(formatter[key])
+                new_funcs[key] = indirect(extra_funcs[key])
 
-    return formatdict
+        return DictFormatProvider(new_funcs)
+
+
+    def __call__(self, data, **options):
+        """
+        find the right formatting function for the dtype_
+        """
+        # allow the formatter itself to be overriden
+        dtype = data.dtype
+        pytype = dtype.type
+        if dtype.fields is not None:
+            provider = StructureFormat.from_data
+        elif issubclass(pytype, _nt.bool_):
+            provider = self.funcs['bool']
+        elif issubclass(pytype, _nt.integer):
+            if issubclass(pytype, _nt.timedelta64):
+                provider = self.funcs['timedelta']
+            else:
+                provider = self.funcs['int']
+        elif issubclass(pytype, _nt.floating):
+            if issubclass(pytype, _nt.longfloat):
+                provider = self.funcs['longfloat']
+            else:
+                provider = self.funcs['float']
+        elif issubclass(pytype, _nt.complexfloating):
+            if issubclass(pytype, _nt.clongfloat):
+                provider = self.funcs['longcomplexfloat']
+            else:
+                provider = self.funcs['complexfloat']
+        elif issubclass(pytype, (_nt.unicode_, _nt.string_)):
+            provider = self.funcs['numpystr']
+        elif issubclass(pytype, _nt.datetime64):
+            provider = self.funcs['datetime']
+        elif issubclass(pytype, _nt.object_):
+            provider = self.funcs['object']
+        else:
+            provider = self.funcs['numpystr']
+
+        return provider(data, **options)
+
+
+# any callable will work here
+default_format_provider = DictFormatProvider({
+    'bool':             lambda data, **opt: BoolFormat(data),
+    'int':              lambda data, **opt: IntegerFormat(data),
+    'float':            lambda data, **opt: FloatFormat(data, opt['precision'], opt['suppress'], opt['sign']),
+    'longfloat':        lambda data, **opt: LongFloatFormat(opt['precision']),
+    'complexfloat':     lambda data, **opt: ComplexFormat(data, opt['precision'], opt['suppress'], opt['sign']),
+    'longcomplexfloat': lambda data, **opt: LongComplexFormat(opt['precision']),
+    'datetime':         lambda data, **opt: DatetimeFormat(data),
+    'timedelta':        lambda data, **opt: TimedeltaFormat(data),
+    'object':           lambda data, **opt: _object_format,
+    'numpystr':         lambda data, **opt: repr_format,
+    'str':              lambda data, **opt: str
+})
 
 def _get_format_function(data, **options):
     """
     find the right formatting function for the dtype_
     """
-    dtype_ = data.dtype
-    if dtype_.fields is not None:
-        return StructureFormat.from_data(data, **options)
-
-    dtypeobj = dtype_.type
-    formatdict = _get_formatdict(data, **options)
-    if issubclass(dtypeobj, _nt.bool_):
-        return formatdict['bool']()
-    elif issubclass(dtypeobj, _nt.integer):
-        if issubclass(dtypeobj, _nt.timedelta64):
-            return formatdict['timedelta']()
-        else:
-            return formatdict['int']()
-    elif issubclass(dtypeobj, _nt.floating):
-        if issubclass(dtypeobj, _nt.longfloat):
-            return formatdict['longfloat']()
-        else:
-            return formatdict['float']()
-    elif issubclass(dtypeobj, _nt.complexfloating):
-        if issubclass(dtypeobj, _nt.clongfloat):
-            return formatdict['longcomplexfloat']()
-        else:
-            return formatdict['complexfloat']()
-    elif issubclass(dtypeobj, (_nt.unicode_, _nt.string_)):
-        return formatdict['numpystr']()
-    elif issubclass(dtypeobj, _nt.datetime64):
-        return formatdict['datetime']()
-    elif issubclass(dtypeobj, _nt.object_):
-        return formatdict['object']()
+    formatter_opt = options['formatter']
+    if isinstance(formatter_opt, dict):
+        format_provider = default_format_provider.extend(formatter_opt)
+    elif formatter_opt is not None:
+        format_provider = formatter_ext
     else:
-        return formatdict['numpystr']()
+        format_provider = default_format_provider
+
+    return format_provider(data, **options)
 
 
 def _recursive_guard(fillvalue='...'):
@@ -596,6 +616,12 @@ def _formatArray(a, format_function, rank, max_line_len,
                           " " + next_line_prefix, separator, edge_items,
                           summary_insert).rstrip()+']\n'
     return s
+
+class Formatter(object):
+    def __init__(self, dtype, **opts):
+        raise NotImplementedError
+
+
 
 class FloatFormat(object):
     def __init__(self, data, precision, suppress_small, sign=False):
