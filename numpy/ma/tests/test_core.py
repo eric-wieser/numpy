@@ -13,6 +13,7 @@ import warnings
 import pickle
 import operator
 import itertools
+import textwrap
 from functools import reduce
 
 
@@ -485,17 +486,44 @@ class TestMaskedArray(object):
     def test_str_repr(self):
         a = array([0, 1, 2], mask=[False, True, False])
         assert_equal(str(a), '[0 -- 2]')
-        assert_equal(repr(a), 'masked_array(data = [0 -- 2],\n'
-                              '             mask = [False  True False],\n'
-                              '       fill_value = 999999)\n')
+        assert_equal(repr(a), 'masked_array(data = [0, --, 2],\n'
+                              '             mask = [False,  True, False],\n'
+                              '       fill_value = 999999)')
 
         a = np.ma.arange(2000)
         a[1:50] = np.ma.masked
         assert_equal(
             repr(a),
-            'masked_array(data = [0 -- -- ..., 1997 1998 1999],\n'
-            '             mask = [False  True  True ..., False False False],\n'
-            '       fill_value = 999999)\n'
+            'masked_array(data = [0, --, --, ..., 1997, 1998, 1999],\n'
+            '             mask = [False,  True,  True, ..., False, False, False],\n'
+            '       fill_value = 999999)'
+        )
+
+        # aligment of nested arrays
+        a = np.ma.array(np.eye(2).astype(int), mask=[[1, 0], [0, 0]])
+        assert_equal(
+            repr(a),
+            textwrap.dedent("""\
+            masked_array(data =
+             [[--, 0],
+              [0, 1]],
+                         mask =
+             [[ True, False],
+              [False, False]],
+                   fill_value = 999999)""")
+        )
+
+        # wrapping of long arrays
+        a = np.ma.array(np.arange(20), mask=np.arange(20) % 3 == 0)
+        assert_equal(
+            repr(a),
+            textwrap.dedent("""\
+            masked_array(data = [--, 1, 2, --, 4, 5, --, 7, 8, --, 10, 11, --, 13, 14,
+                                 --, 16, 17, --, 19],
+                         mask = [ True, False, False,  True, False, False,  True,
+                                 False, False,  True, False, False,  True, False,
+                                 False,  True, False, False,  True, False],
+                   fill_value = 999999)""")
         )
 
     def test_pickling(self):

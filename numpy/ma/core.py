@@ -25,6 +25,7 @@ from __future__ import division, absolute_import, print_function
 import sys
 import operator
 import warnings
+import textwrap
 from functools import reduce
 
 if sys.version_info[0] >= 3:
@@ -2427,32 +2428,30 @@ def _recursive_printoption(result, mask, printopt):
         np.copyto(result, printopt, where=mask)
     return
 
-_print_templates = dict(long_std="""\
-masked_%(name)s(data =
- %(data)s,
-       %(nlen)s mask =
- %(mask)s,
- %(nlen)s fill_value = %(fill)s)
-""",
-                        short_std="""\
-masked_%(name)s(data = %(data)s,
-       %(nlen)s mask = %(mask)s,
-%(nlen)s  fill_value = %(fill)s)
-""",
-                        long_flx="""\
-masked_%(name)s(data =
- %(data)s,
-       %(nlen)s mask =
- %(mask)s,
-%(nlen)s  fill_value = %(fill)s,
-      %(nlen)s dtype = %(dtype)s)
-""",
-                        short_flx="""\
-masked_%(name)s(data = %(data)s,
-%(nlen)s        mask = %(mask)s,
-%(nlen)s  fill_value = %(fill)s,
-%(nlen)s       dtype = %(dtype)s)
-""")
+_print_templates = dict(
+    long_std=textwrap.dedent("""\
+        masked_%(name)s(data =
+         %(data)s,
+        %(nlen)s        mask =
+         %(mask)s,
+        %(nlen)s  fill_value = %(fill)s)"""),
+    long_flx=textwrap.dedent("""\
+        masked_%(name)s(data =
+         %(data)s,
+        %(nlen)s        mask =
+         %(mask)s,
+        %(nlen)s  fill_value = %(fill)s,
+        %(nlen)s       dtype = %(dtype)s)"""),
+    short_std=textwrap.dedent("""\
+        masked_%(name)s(data = %(data)s,
+        %(nlen)s        mask = %(mask)s,
+        %(nlen)s  fill_value = %(fill)s)"""),
+    short_flx=textwrap.dedent("""\
+        masked_%(name)s(data = %(data)s,
+        %(nlen)s        mask = %(mask)s,
+        %(nlen)s  fill_value = %(fill)s,
+        %(nlen)s       dtype = %(dtype)s)""")
+)
 
 ###############################################################################
 #                          MaskedArray class                                  #
@@ -3822,11 +3821,7 @@ class MaskedArray(ndarray):
             _new._mask = _mask.compress(condition, axis=axis)
         return _new
 
-    def __str__(self):
-        """
-        String representation.
-
-        """
+    def __insert_masked_print(self):
         if masked_print_option.enabled():
             mask = self._mask
             if mask is nomask:
@@ -3851,29 +3846,48 @@ class MaskedArray(ndarray):
                 _recursive_printoption(res, mask, masked_print_option)
         else:
             res = self.filled(self.fill_value)
-        return str(res)
+        return res
+
+    def __str__(self):
+        return str(self.__insert_masked_print())
 
     def __repr__(self):
         """
         Literal string representation.
 
         """
-        n = self.ndim
         if self._baseclass is np.ndarray:
             name = 'array'
         else:
             name = self._baseclass.__name__
 
-        parameters = dict(name=name, nlen=" " * len(name),
-                          data=str(self), mask=str(self._mask),
-                          fill=str(self.fill_value), dtype=str(self.dtype))
-        if self.dtype.names:
-            if n <= 1:
-                return _print_templates['short_flx'] % parameters
-            return _print_templates['long_flx'] % parameters
-        elif n <= 1:
-            return _print_templates['short_std'] % parameters
-        return _print_templates['long_std'] % parameters
+        # populate the lazy-loaded fill value
+        self.fill_value
+
+        is_long = self.ndim > 1
+        is_structured = bool(self.dtype.names)
+
+        prefix=' ' if is_long else 'masked_{}(data = '.format(name)
+        parameters = dict(
+            name=name,
+            nlen=" " * len(name),
+            data=np.array2string(
+                self.__insert_masked_print(),
+                separator=", ", prefix=prefix
+            ),
+            mask=np.array2string(
+                self._mask,
+                separator=", ", prefix=prefix
+            ),
+            fill=np.array2string(self._fill_value, separator=", "),
+            dtype=str(self.dtype),
+        )
+
+        key = '{}_{}'.format(
+            'long' if is_long else 'short',
+            'flx' if is_structured else 'std'
+        )
+        return _print_templates[key] % parameters
 
     def _delegate_binop(self, other):
         # This emulates the logic in
