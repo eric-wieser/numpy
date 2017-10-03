@@ -485,8 +485,8 @@ class TestMaskedArray(object):
 
     def test_str_repr(self):
         a = array([0, 1, 2], mask=[False, True, False])
-        assert_equal(str(a), '[0 -- 2]')
-        assert_equal(repr(a), 'masked_array(data = [0, --, 2],\n'
+        assert_equal(str(a), '[ 0 --  2]')
+        assert_equal(repr(a), 'masked_array(data = [ 0, --,  2],\n'
                               '             mask = [False,  True, False],\n'
                               '       fill_value = 999999)')
 
@@ -494,7 +494,7 @@ class TestMaskedArray(object):
         a[1:50] = np.ma.masked
         assert_equal(
             repr(a),
-            'masked_array(data = [0, --, --, ..., 1997, 1998, 1999],\n'
+            'masked_array(data = [   0,   --,   --, ..., 1997, 1998, 1999],\n'
             '             mask = [False,  True,  True, ..., False, False, False],\n'
             '       fill_value = 999999)'
         )
@@ -505,8 +505,8 @@ class TestMaskedArray(object):
             repr(a),
             textwrap.dedent("""\
             masked_array(data =
-             [[--, 0],
-              [0, 1]],
+             [[--,  0],
+              [ 0,  1]],
                          mask =
              [[ True, False],
               [False, False]],
@@ -518,8 +518,8 @@ class TestMaskedArray(object):
         assert_equal(
             repr(a),
             textwrap.dedent("""\
-            masked_array(data = [--, 1, 2, --, 4, 5, --, 7, 8, --, 10, 11, --, 13, 14,
-                                 --, 16, 17, --, 19],
+            masked_array(data = [--,  1,  2, --,  4,  5, --,  7,  8,  --,  10,
+                                 11, --, 13, 14, --, 16, 17, --, 19],
                          mask = [ True, False, False,  True, False, False,  True,
                                  False, False,  True, False, False,  True, False,
                                  False,  True, False, False,  True, False],
@@ -751,7 +751,7 @@ class TestMaskedArray(object):
         test = array([(1, (2, 3.0)), (4, (5, 6.0))],
                      mask=[(1, (0, 1)), (0, (1, 0))],
                      dtype=fancydtype)
-        control = "[(--, (2, --)) (4, (--, 6.0))]"
+        control = "[(--, ( 2, --)) ( 4, (--, 6.))]"
         assert_equal(str(test), control)
 
         # Test 0-d array with multi-dimensional dtype

@@ -2453,6 +2453,43 @@ _print_templates = dict(
         %(nlen)s       dtype = %(dtype)s)""")
 )
 
+
+# a custom format provider for masked arrays, that inserts --
+def _format_provider(data, **options):
+    """
+    Custom format provider for masked arrays.
+
+    This is passed as the `formatter` argument to array2string.
+
+    This is used to insert the masked_print_option into the repr,
+    without using the old trick of casting everything to object first.
+    """
+    # structured types go through the normal mechanism, as they recurse and
+    # will call us again. Note we pass a ma.array so the mask makes it back to
+    # us too.
+    if data.dtype.shape or data.dtype.fields:
+        return np.core.arrayprint.default_format_provider(data, **options)
+
+    # Here we pass only the raw data, to avoid warnings from
+    # `float(np.ma.masked)`
+    default = np.core.arrayprint.default_format_provider(data.data, **options)
+    any_masked = data.mask.any()
+    masked_str = str(masked_print_option)
+
+    def formatter(x):
+        res = default(x.data)
+        # no need to adjust padding if this data isn't masked
+        if not any_masked:
+            return res
+
+        # pad the columns to align when including the masked string
+        col_width = builtins.max(len(res), len(masked_str))
+        if x.mask:
+            res = masked_str
+        return res.rjust(col_width)
+
+    return formatter
+
 ###############################################################################
 #                          MaskedArray class                                  #
 ###############################################################################
@@ -3849,7 +3886,7 @@ class MaskedArray(ndarray):
         return res
 
     def __str__(self):
-        return str(self.__insert_masked_print())
+        return np.array2string(self, formatter=_format_provider)
 
     def __repr__(self):
         """
@@ -3867,17 +3904,19 @@ class MaskedArray(ndarray):
         is_long = self.ndim > 1
         is_structured = bool(self.dtype.names)
 
+
         prefix=' ' if is_long else 'masked_{}(data = '.format(name)
         parameters = dict(
             name=name,
             nlen=" " * len(name),
             data=np.array2string(
-                self.__insert_masked_print(),
-                separator=", ", prefix=prefix
+                self,
+                separator=", ", prefix=prefix, formatter=_format_provider
             ),
             mask=np.array2string(
                 self._mask,
-                separator=", ", prefix=prefix
+                separator=", ", prefix=prefix,
+
             ),
             fill=np.array2string(self._fill_value, separator=", "),
             dtype=str(self.dtype),

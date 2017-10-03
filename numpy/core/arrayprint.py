@@ -258,38 +258,67 @@ def _object_format(o):
 def repr_format(x):
     return repr(x)
 
+def _on_scalar(f):
+    return lambda x: f(x.view(np.ndarray)[()])
 
-class DictFormatProvider(object):
+class FormatProvider(object):
+    def __call__(data, **options):
+        """ return a callable accepting a 0d array to apply to each item """
+        raise NotImplementedError
+
+class ConstantProvider(FormatProvider):
+    def __init__(self, formatter):
+        self.formatter = formatter
+    def __call__(self, data, **options):
+        return self.formatter
+
+class DictFormatProvider(FormatProvider):
+    """
+    A format provider is any object with a ``.__call__(data, **options)`` method
+    """
     def __init__(self, funcs):
         self.funcs = funcs
 
     def extend(self, extra_funcs):
+        """
+        Create a copy of this format provider, updating the lookup
+        table of providers with new providers.
 
-        def indirect(x):
-            return lambda data, **opts: x
-
+        Aliases exist that represent more than one key at once.
+        """
         new_funcs = self.funcs.copy()
         fkeys = [k for k in extra_funcs.keys() if extra_funcs[k] is not None]
-        if 'all' in fkeys:
+        if 'all' in extra_funcs:
             for key in new_funcs.keys():
-                new_funcs[key] = indirect(extra_funcs['all'])
-        if 'int_kind' in fkeys:
+                new_funcs[key] = extra_funcs['all']
+        if 'int_kind' in extra_funcs:
             for key in ['int']:
-                new_funcs[key] = indirect(extra_funcs['int_kind'])
-        if 'float_kind' in fkeys:
+                new_funcs[key] = extra_funcs['int_kind']
+        if 'float_kind' in extra_funcs:
             for key in ['float', 'longfloat']:
-                new_funcs[key] = indirect(extra_funcs['float_kind'])
-        if 'complex_kind' in fkeys:
+                new_funcs[key] = extra_funcs['float_kind']
+        if 'complex_kind' in extra_funcs:
             for key in ['complexfloat', 'longcomplexfloat']:
-                new_funcs[key] = indirect(extra_funcs['complex_kind'])
-        if 'str_kind' in fkeys:
+                new_funcs[key] = extra_funcs['complex_kind']
+        if 'str_kind' in extra_funcs:
             for key in ['numpystr', 'str']:
-                new_funcs[key] = indirect(extra_funcs['str_kind'])
+                new_funcs[key] = extra_funcs['str_kind']
         for key in new_funcs.keys():
-            if key in fkeys:
-                new_funcs[key] = indirect(extra_funcs[key])
+            if key in extra_funcs:
+                new_funcs[key] = extra_funcs[key]
 
         return DictFormatProvider(new_funcs)
+
+    def extend_compat(self, extra_funcs):
+        """
+        Compatibility version of `extend`, that assumes keys are simple values,
+        and that formatters operate on scalars
+        """
+        return self.extend({
+            k: ConstantProvider(_on_scalar(v))
+            for k, v in extra_funcs.items()
+            if v is not None
+        })
 
 
     def __call__(self, data, **options):
@@ -332,17 +361,17 @@ class DictFormatProvider(object):
 
 # any callable will work here
 default_format_provider = DictFormatProvider({
-    'bool':             lambda data, **opt: BoolFormat(data),
-    'int':              lambda data, **opt: IntegerFormat(data),
-    'float':            lambda data, **opt: FloatFormat(data, opt['precision'], opt['suppress'], opt['sign']),
-    'longfloat':        lambda data, **opt: LongFloatFormat(opt['precision']),
-    'complexfloat':     lambda data, **opt: ComplexFormat(data, opt['precision'], opt['suppress'], opt['sign']),
-    'longcomplexfloat': lambda data, **opt: LongComplexFormat(opt['precision']),
-    'datetime':         lambda data, **opt: DatetimeFormat(data),
-    'timedelta':        lambda data, **opt: TimedeltaFormat(data),
-    'object':           lambda data, **opt: _object_format,
-    'numpystr':         lambda data, **opt: repr_format,
-    'str':              lambda data, **opt: str
+    'bool':             lambda data, **opt: _on_scalar(BoolFormat(data)),
+    'int':              lambda data, **opt: _on_scalar(IntegerFormat(data)),
+    'float':            lambda data, **opt: _on_scalar(FloatFormat(data, opt['precision'], opt['suppress'], opt['sign'])),
+    'longfloat':        lambda data, **opt: _on_scalar(LongFloatFormat(opt['precision'])),
+    'complexfloat':     lambda data, **opt: _on_scalar(ComplexFormat(data, opt['precision'], opt['suppress'], opt['sign'])),
+    'longcomplexfloat': lambda data, **opt: _on_scalar(LongComplexFormat(opt['precision'])),
+    'datetime':         lambda data, **opt: _on_scalar(DatetimeFormat(data)),
+    'timedelta':        lambda data, **opt: _on_scalar(TimedeltaFormat(data)),
+    'object':           lambda data, **opt: _on_scalar(_object_format),
+    'numpystr':         lambda data, **opt: _on_scalar(repr_format),
+    'str':              lambda data, **opt: _on_scalar(str)
 })
 
 def _get_format_function(data, **options):
@@ -351,9 +380,9 @@ def _get_format_function(data, **options):
     """
     formatter_opt = options['formatter']
     if isinstance(formatter_opt, dict):
-        format_provider = default_format_provider.extend(formatter_opt)
+        format_provider = default_format_provider.extend_compat(formatter_opt)
     elif formatter_opt is not None:
-        format_provider = formatter_ext
+        format_provider = formatter_opt
     else:
         format_provider = default_format_provider
 
@@ -400,7 +429,7 @@ def _array2string(a, options, separator=' ', prefix=""):
         data = asarray(a)
 
     # find the right formatting function for the array
-    format_function = _get_format_function(data, **options)
+    format_function = _get_format_function(a, **options)
 
     # skip over "["
     next_line_prefix = " "
@@ -560,7 +589,7 @@ def _formatArray(a, format_function, rank, max_line_len,
 
     """
     if rank == 0:
-        return format_function(a[()]) + '\n'
+        return format_function(a[...]) + '\n'
 
     if summary_insert and 2*edge_items < len(a):
         leading_items = edge_items
@@ -575,17 +604,17 @@ def _formatArray(a, format_function, rank, max_line_len,
         s = ""
         line = next_line_prefix
         for i in range(leading_items):
-            word = format_function(a[i]) + separator
+            word = format_function(a[i,...]) + separator
             s, line = _extendLine(s, line, word, max_line_len, next_line_prefix)
 
         if summary_insert1:
             s, line = _extendLine(s, line, summary_insert1, max_line_len, next_line_prefix)
 
         for i in range(trailing_items, 1, -1):
-            word = format_function(a[-i]) + separator
+            word = format_function(a[-i,...]) + separator
             s, line = _extendLine(s, line, word, max_line_len, next_line_prefix)
 
-        word = format_function(a[-1])
+        word = format_function(a[-1,...])
         s, line = _extendLine(s, line, word, max_line_len, next_line_prefix)
         s += line + "]\n"
         s = '[' + s[len(next_line_prefix):]
@@ -595,7 +624,7 @@ def _formatArray(a, format_function, rank, max_line_len,
         for i in range(leading_items):
             if i > 0:
                 s += next_line_prefix
-            s += _formatArray(a[i], format_function, rank-1, max_line_len,
+            s += _formatArray(a[i,...], format_function, rank-1, max_line_len,
                               " " + next_line_prefix, separator, edge_items,
                               summary_insert)
             s = s.rstrip() + sep.rstrip() + '\n'*max(rank-1, 1)
@@ -606,20 +635,16 @@ def _formatArray(a, format_function, rank, max_line_len,
         for i in range(trailing_items, 1, -1):
             if leading_items or i != trailing_items:
                 s += next_line_prefix
-            s += _formatArray(a[-i], format_function, rank-1, max_line_len,
+            s += _formatArray(a[-i,...], format_function, rank-1, max_line_len,
                               " " + next_line_prefix, separator, edge_items,
                               summary_insert)
             s = s.rstrip() + sep.rstrip() + '\n'*max(rank-1, 1)
         if leading_items or trailing_items > 1:
             s += next_line_prefix
-        s += _formatArray(a[-1], format_function, rank-1, max_line_len,
+        s += _formatArray(a[-1,...], format_function, rank-1, max_line_len,
                           " " + next_line_prefix, separator, edge_items,
                           summary_insert).rstrip()+']\n'
     return s
-
-class Formatter(object):
-    def __init__(self, dtype, **opts):
-        raise NotImplementedError
 
 
 
@@ -858,7 +883,7 @@ class TimedeltaFormat(object):
         int_dtype = dtype(data.dtype.byteorder + 'i8')
         int_view = data.view(int_dtype)
         v = int_view[not_equal(int_view, nat_value.view(int_dtype))]
-        if len(v) > 0:
+        if len(v) > 1:
             # Max str length of non-NaT elements
             max_str_len = max(len(str(np.max(v))),
                               len(str(np.min(v))))
@@ -883,9 +908,11 @@ class SubArrayFormat(object):
         self.format_function = format_function
 
     def __call__(self, arr):
-        if arr.ndim <= 1:
-            return "[" + ", ".join(self.format_function(a) for a in arr) + "]"
-        return "[" + ", ".join(self.__call__(a) for a in arr) + "]"
+        if arr.ndim == 0:
+            return self.format_function(arr)
+        return "[" + ", ".join(
+            self.__call__(arr[i,...]) for i in range(len(arr))
+        ) + "]"
 
 
 class StructureFormat(object):
@@ -909,8 +936,8 @@ class StructureFormat(object):
 
     def __call__(self, x):
         s = "("
-        for field, format_function in zip(x, self.format_functions):
-            s += format_function(field) + ", "
+        for name, format_function in zip(x.dtype.names, self.format_functions):
+            s += format_function(x[name]) + ", "
         return (s[:-2] if 1 < self.num_fields else s[:-1]) + ")"
 
 
