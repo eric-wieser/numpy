@@ -14,4 +14,14 @@
 NPY_NO_EXPORT PyObject *
 npy_longdouble_to_PyLong(npy_longdouble ldval);
 
+/* Convert a python `long` integer to a npy_longdouble
+ *
+ * This performs the same task as PyLong_AsDouble, but for long doubles
+ * which have a greater range.
+ *
+ * Returns -1 if an error occurs.
+ */
+NPY_NO_EXPORT npy_longdouble
+npy_longdouble_from_PyLong(PyObject *long_obj);
+
 #endif

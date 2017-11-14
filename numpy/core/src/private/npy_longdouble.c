@@ -3,6 +3,7 @@
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 #include "numpy/ndarraytypes.h"
 #include "numpy/npy_math.h"
+#include "numpyos.h"
 
 /* This is a backport of Py_SETREF */
 #define NPY_SETREF(op, op2)                      \
@@ -99,4 +100,73 @@ npy_longdouble_to_PyLong(npy_longdouble ldval)
 done:
     Py_DECREF(l_chunk_size);
     return v;
+}
+
+/* Helper function to get unicode(PyLong).encode('utf8') */
+static PyObject *
+_PyLong_Bytes(PyObject *long_obj) {
+    PyObject *bytes;
+#if defined(NPY_PY3K)
+    PyObject *unicode = PyObject_Str(long_obj);
+    if (unicode == NULL) {
+        return NULL;
+    }
+    bytes = PyUnicode_AsUTF8String(unicode);
+    Py_DECREF(unicode);
+#else
+    bytes = PyObject_Str(long_obj);
+#endif
+    return bytes;
+}
+
+
+/**
+ * TODO: currently a hack that converts the long through a string. This is
+ * correct, bus slow.
+ *
+ * To do this right, we need to know the number of digits in the mantissa, so
+ * as to compute rounding modes correctly. PyLong_AsDouble shows how some of
+ * this can work.
+ */
+npy_longdouble
+npy_longdouble_from_PyLong(PyObject *long_obj) {
+    npy_longdouble result;
+    char *end;
+    char *s;
+    PyObject *bytes;
+
+    bytes = _PyLong_Bytes(long_obj);
+    if (bytes == NULL){
+        return -1;
+    }
+
+    s = PyBytes_AsString(bytes);
+    end = NULL;
+    errno = 0;
+    result = NumPyOS_ascii_strtold(cstr, &end);
+    if (errno == ERANGE) {
+        /* strtold returns INFINITY of the correct sign. */
+        if (PyErr_Warn(PyExc_RuntimeWarning,
+                "overflow encountered in conversion from string") < 0) {
+            result = -1;
+        }
+    }
+    else if (errno) {
+        PyErr_Format(PyExc_RuntimeError,
+                     "Could not parse long as longdouble: %s (%s)",
+                     s,
+                     strerror(errno));
+        result = -1;
+    }
+
+    /* Extra characters at the end of the string, or nothing parsed */
+    if (end == s || *end) {
+        PyErr_Format(PyExc_RuntimeError,
+                     "Could not parse long as longdouble: %s",
+                     s);
+        result = -1;
+    }
+    Py_DECREF(bytes);
+
+    return result;
 }
