@@ -374,16 +374,6 @@ def load(file, mmap_mode=None, allow_pickle=True, fix_imports=True,
     memmap([4, 5, 6])
 
     """
-    own_fid = False
-    if isinstance(file, basestring):
-        fid = open(file, "rb")
-        own_fid = True
-    elif is_pathlib_path(file):
-        fid = file.open("rb")
-        own_fid = True
-    else:
-        fid = file
-
     if encoding not in ('ASCII', 'latin1', 'bytes'):
         # The 'encoding' value for pickle also affects what encoding
         # the serialized binary data of NumPy arrays is loaded
@@ -404,6 +394,17 @@ def load(file, mmap_mode=None, allow_pickle=True, fix_imports=True,
         # Nothing to do on Python 2
         pickle_kwargs = {}
 
+    # TODO: Use contextlib.ExitStack once we drop Python 2
+    if isinstance(file, basestring):
+        fid = open(file, "rb")
+        own_fid = True
+    elif is_pathlib_path(file):
+        fid = file.open("rb")
+        own_fid = True
+    else:
+        fid = file
+        own_fid = False
+
     try:
         # Code to distinguish from NumPy binary files and pickles.
         _ZIP_PREFIX = b'PK\x03\x04'
@@ -415,10 +416,10 @@ def load(file, mmap_mode=None, allow_pickle=True, fix_imports=True,
         if magic.startswith(_ZIP_PREFIX):
             # zip-file (assume .npz)
             # Transfer file ownership to NpzFile
-            tmp = own_fid
+            ret = NpzFile(fid, own_fid=own_fid, allow_pickle=allow_pickle,
+                          pickle_kwargs=pickle_kwargs)
             own_fid = False
-            return NpzFile(fid, own_fid=tmp, allow_pickle=allow_pickle,
-                           pickle_kwargs=pickle_kwargs)
+            return ret
         elif magic == format.MAGIC_PREFIX:
             # .npy file
             if mmap_mode:
