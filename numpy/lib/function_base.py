@@ -937,12 +937,6 @@ def gradient(f, *varargs, **kwargs):
 
     outvals = []
 
-    # create slice objects --- initially all are [:, :, ..., :]
-    slice1 = [slice(None)]*N
-    slice2 = [slice(None)]*N
-    slice3 = [slice(None)]*N
-    slice4 = [slice(None)]*N
-
     otype = f.dtype
     if otype.type is np.datetime64:
         # the timedelta dtype with the same unit information
@@ -968,86 +962,61 @@ def gradient(f, *varargs, **kwargs):
         # spacing for the current axis
         uniform_spacing = np.ndim(ax_dx) == 0
 
-        # Numerical differentiation: 2nd order interior
-        slice1[axis] = slice(1, -1)
-        slice2[axis] = slice(None, -2)
-        slice3[axis] = slice(1, -1)
-        slice4[axis] = slice(2, None)
+        # transposed view on f, out, and dx, with the relevant axes first
+        fv = np.moveaxis(f, axis, 0)
+        ov = np.moveaxis(out, axis, 0)
+        ax_dx = np.reshape(ax_dx, (-1,) + (1,)*(N - 1))
 
+        # Numerical differentiation: 2nd order interior
         if uniform_spacing:
-            out[tuple(slice1)] = (f[tuple(slice4)] - f[tuple(slice2)]) / (2. * ax_dx)
+            ov[1:-1] = (f[2:] - f[:-2]) / (2. * ax_dx)
         else:
             dx1 = ax_dx[0:-1]
             dx2 = ax_dx[1:]
             a = -(dx2)/(dx1 * (dx1 + dx2))
             b = (dx2 - dx1) / (dx1 * dx2)
             c = dx1 / (dx2 * (dx1 + dx2))
-            # fix the shape for broadcasting
-            shape = np.ones(N, dtype=int)
-            shape[axis] = -1
-            a.shape = b.shape = c.shape = shape
-            # 1D equivalent -- out[1:-1] = a * f[:-2] + b * f[1:-1] + c * f[2:]
-            out[tuple(slice1)] = a * f[tuple(slice2)] + b * f[tuple(slice3)] + c * f[tuple(slice4)]
+            ov[1:-1] = a * fv[:-2] + b * fv[1:-1] + c * fv[2:]
 
         # Numerical differentiation: 1st order edges
         if edge_order == 1:
-            slice1[axis] = 0
-            slice2[axis] = 1
-            slice3[axis] = 0
-            dx_0 = ax_dx if uniform_spacing else ax_dx[0]
-            # 1D equivalent -- out[0] = (f[1] - f[0]) / (x[1] - x[0])
-            out[tuple(slice1)] = (f[tuple(slice2)] - f[tuple(slice3)]) / dx_0
+            ov[0] = (fv[1] - fv[0]) / ax_dx[0]
 
-            slice1[axis] = -1
-            slice2[axis] = -1
-            slice3[axis] = -2
-            dx_n = ax_dx if uniform_spacing else ax_dx[-1]
-            # 1D equivalent -- out[-1] = (f[-1] - f[-2]) / (x[-1] - x[-2])
-            out[tuple(slice1)] = (f[tuple(slice2)] - f[tuple(slice3)]) / dx_n
+            ov[-1] = (fv[-1] - fv[-2]) / ax_dx[-1]
 
         # Numerical differentiation: 2nd order edges
         else:
-            slice1[axis] = 0
-            slice2[axis] = 0
-            slice3[axis] = 1
-            slice4[axis] = 2
             if uniform_spacing:
-                a = -1.5 / ax_dx
-                b = 2. / ax_dx
-                c = -0.5 / ax_dx
+                a = -1.5 / ax_dx[0]
+                b = 2. / ax_dx[0]
+                c = -0.5 / ax_dx[0]
             else:
                 dx1 = ax_dx[0]
                 dx2 = ax_dx[1]
                 a = -(2. * dx1 + dx2)/(dx1 * (dx1 + dx2))
                 b = (dx1 + dx2) / (dx1 * dx2)
                 c = - dx1 / (dx2 * (dx1 + dx2))
-            # 1D equivalent -- out[0] = a * f[0] + b * f[1] + c * f[2]
-            out[tuple(slice1)] = a * f[tuple(slice2)] + b * f[tuple(slice3)] + c * f[tuple(slice4)]
+            ov[0] = a * fv[0] + b * fv[1] + c * fv[2]
 
-            slice1[axis] = -1
-            slice2[axis] = -3
-            slice3[axis] = -2
-            slice4[axis] = -1
             if uniform_spacing:
-                a = 0.5 / ax_dx
-                b = -2. / ax_dx
-                c = 1.5 / ax_dx
+                a = 0.5 / ax_dx[-1]
+                b = -2. / ax_dx[-1]
+                c = 1.5 / ax_dx[-1]
             else:
                 dx1 = ax_dx[-2]
                 dx2 = ax_dx[-1]
                 a = (dx2) / (dx1 * (dx1 + dx2))
                 b = - (dx2 + dx1) / (dx1 * dx2)
                 c = (2. * dx2 + dx1) / (dx2 * (dx1 + dx2))
-            # 1D equivalent -- out[-1] = a * f[-3] + b * f[-2] + c * f[-1]
-            out[tuple(slice1)] = a * f[tuple(slice2)] + b * f[tuple(slice3)] + c * f[tuple(slice4)]
+            ov[-1] = a * fv[-3] + b * fv[-2] + c * fv[-1]
+
+        if type(out) is not np.ndarray:
+            # untranspose the result - only needed if moveaxis did not return
+            # a view, which it always does for ndarray
+            out = np.moveaxis(ov, 0, axis)
 
         outvals.append(out)
 
-        # reset the slice object in this dimension to ":"
-        slice1[axis] = slice(None)
-        slice2[axis] = slice(None)
-        slice3[axis] = slice(None)
-        slice4[axis] = slice(None)
 
     if len_axes == 1:
         return outvals[0]
