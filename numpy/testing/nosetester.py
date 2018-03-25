@@ -448,7 +448,7 @@ class NoseTester(object):
             # so fetch module for suppression here.
             with warnings.catch_warnings():
                 warnings.simplefilter("always")
-                from ...distutils import cpuinfo
+                from ..distutils import cpuinfo
             sup.filter(category=UserWarning, module=cpuinfo)
             # See #7949: Filter out deprecation warnings due to the -3 flag to
             # python 2
