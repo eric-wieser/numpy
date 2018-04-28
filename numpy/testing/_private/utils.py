@@ -16,6 +16,12 @@ import contextlib
 from tempfile import mkdtemp, mkstemp
 from unittest.case import SkipTest
 import pprint
+try:
+    # Accessing collections abstract classes from collections
+    # has been deprecated since Python 3.3
+    import collections.abc as collections_abc
+except ImportError:
+    import collections as collections_abc
 
 from numpy.core import(
      float32, empty, arange, array_repr, ndarray, isnat, array)
@@ -2276,6 +2282,65 @@ class suppress_warnings(object):
         return new_func
 
 
+class _IdSet(collections_abc.MutableSet):
+    """ Like a set, but keyed by id via `is`, not `==` """
+    def __init__(self, objects=()):
+        if isinstance(objects, _IdSet):
+            self._dict = objects._dict.copy()
+        else:
+            self._dict = {id(o): o for o in objects}
+
+    # MutableSet
+    def __contains__(self, other):
+        return self._dict.__contains__(id(other))
+
+    def __iter__(self):
+        return iter(self._dict.values())
+
+    def __len__(self):
+        return len(self._dict)
+
+    def add(self, other):
+        self._dict[id(other)] = other
+
+    def discard(self, other):
+        del self._dict[id(other)]
+
+    # extra methods
+    def update(self, other):
+        self._dict.update(_IdSet(other)._dict)
+
+    def __repr__(self):
+        return "_IdSet({{{!r}}})".format(
+            ", ".join(repr(v) for v in self._dict.values())
+        )
+
+
+def _get_all_referents(objects):
+    """ Do a breadth-first search over gc.get_referents """
+    leaves = _IdSet(objects)
+    seen = _IdSet()
+    while leaves:
+        seen.update(leaves)
+        leaves = _IdSet(
+            c
+            for l in leaves
+            for c in gc.get_referents(l)
+            if c not in seen
+        )
+    return seen
+
+
+def _strip_class_cycles(objects):
+    types = _IdSet(t for t in objects if isinstance(t, type))
+    type_referents = _get_all_referents(types) - types
+
+    return [
+        o
+        for o in objects
+        if o not in type_referents
+    ]
+
 @contextlib.contextmanager
 def _assert_no_gc_cycles_context(name=None):
     __tracebackhide__ = True  # Hide traceback for py.test
@@ -2308,6 +2373,8 @@ def _assert_no_gc_cycles_context(name=None):
         gc.enable()
 
     if n_objects_in_cycles:
+        objects_in_cycles = _strip_class_cycles(objects_in_cycles)
+
         name_str = " when calling %s" % name if name is not None else ""
         raise AssertionError(
             "Reference cycles were found{}: {} objects were collected, "
