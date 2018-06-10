@@ -4593,6 +4593,8 @@ ufunc_generic_call(PyUFuncObject *ufunc, PyObject *args, PyObject *kwds)
                 res = PyObject_CallFunctionObjArgs(wrap, mps[j], NULL);
             }
             Py_DECREF(wrap);
+            Py_DECREF(mps[j]);
+            mps[j] = NULL;  /* Prevent fail double-freeing this */
             if (res == NULL) {
                 goto fail;
             }
