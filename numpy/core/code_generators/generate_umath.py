@@ -159,6 +159,14 @@ else:
     UPPER_TABLE = bytes.maketrans(bytes(string.ascii_lowercase, "ascii"),
                                   bytes(string.ascii_uppercase, "ascii"))
 
+def as_c_identifier(s):
+    return ''.join(
+        c
+        if c in string.ascii_letters + string.digits and c != 'x' else
+        'x{:02X}'.format(c.encode('ascii')[0])
+        for c in s
+    )
+
 def english_upper(s):
     """ Apply English case rules to convert ASCII strings to all upper case.
 
@@ -281,6 +289,8 @@ defdict = {
            TypeDescription('m', FullTypeDescr, 'mm', 'm'),
            TypeDescription('M', FullTypeDescr, 'mM', 'M'),
           ],
+          [TypeDescription('?', FullTypeDescr, i+'?', i)  # can't use ?? in a function name
+           for i in ints],
           TD(O, f='PyNumber_Add'),
           ),
 'subtract':
@@ -1000,8 +1010,9 @@ def make_arrays(funcdict):
             if t.func_data is FullTypeDescr:
                 tname = english_upper(chartoname[t.type])
                 datalist.append('(void *)NULL')
-                funclist.append(
-                        '%s_%s_%s_%s' % (tname, t.in_, t.out, name))
+                funclist.append('%s_%s_%s_%s' % (
+                    tname, as_c_identifier(t.in_), as_c_identifier(t.out), name
+                ))
             elif isinstance(t.func_data, FuncNameSuffix):
                 datalist.append('(void *)NULL')
                 tname = english_upper(chartoname[t.type])

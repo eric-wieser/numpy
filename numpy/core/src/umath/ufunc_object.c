@@ -3400,7 +3400,7 @@ get_binary_op_function(PyUFuncObject *ufunc, int *otype,
 
 static int
 reduce_type_resolver(PyUFuncObject *ufunc, PyArrayObject *arr,
-                        PyArray_Descr *odtype, PyArray_Descr **out_dtype)
+                        PyArray_Descr **op_dtype, PyArray_Descr **result_dtype)
 {
     int i, retcode;
     PyArrayObject *op[3] = {arr, arr, NULL};
@@ -3408,14 +3408,12 @@ reduce_type_resolver(PyUFuncObject *ufunc, PyArrayObject *arr,
     const char *ufunc_name = ufunc_get_name_cstr(ufunc);
     PyObject *type_tup = NULL;
 
-    *out_dtype = NULL;
-
     /*
      * If odtype is specified, make a type tuple for the type
      * resolution.
      */
-    if (odtype != NULL) {
-        type_tup = PyTuple_Pack(3, odtype, odtype, Py_None);
+    if (*result_dtype != NULL) {
+        type_tup = PyTuple_Pack(3, *result_dtype, (PyObject *)PyArray_DESCR(arr), *result_dtype);
         if (type_tup == NULL) {
             return -1;
         }
@@ -3436,25 +3434,10 @@ reduce_type_resolver(PyUFuncObject *ufunc, PyArrayObject *arr,
         return -1;
     }
 
-    /*
-     * The first two type should be equivalent. Because of how
-     * reduce has historically behaved in NumPy, the return type
-     * could be different, and it is the return type on which the
-     * reduction occurs.
-     */
-    if (!PyArray_EquivTypes(dtypes[0], dtypes[1])) {
-        for (i = 0; i < 3; ++i) {
-            Py_DECREF(dtypes[i]);
-        }
-        PyErr_Format(PyExc_RuntimeError,
-                "could not find a type resolution appropriate for "
-                "reduce ufunc %s", ufunc_name);
-        return -1;
-    }
-
     Py_DECREF(dtypes[0]);
-    Py_DECREF(dtypes[1]);
-    *out_dtype = dtypes[2];
+    Py_XDECREF(*result_dtype);
+    *op_dtype = dtypes[1];
+    *result_dtype = dtypes[2];
 
     return 0;
 }
@@ -3593,7 +3576,7 @@ finish_loop:
  */
 static PyArrayObject *
 PyUFunc_Reduce(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
-        int naxes, int *axes, PyArray_Descr *odtype, int keepdims,
+        int naxes, int *axes, PyArray_Descr *result_dtype, int keepdims,
         PyObject *initial, PyArrayObject *wheremask)
 {
     int iaxes, ndim;
@@ -3655,12 +3638,14 @@ PyUFunc_Reduce(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
     }
 
     /* Get the reduction dtype */
-    if (reduce_type_resolver(ufunc, arr, odtype, &dtype) < 0) {
+    Py_INCREF(result_dtype);
+    PyArray_Descr *op_dtype = NULL;
+    if (reduce_type_resolver(ufunc, arr, &op_dtype, &result_dtype) < 0) {
         Py_DECREF(initial);
         return NULL;
     }
 
-    result = PyUFunc_ReduceWrapper(arr, out, wheremask, dtype, dtype,
+    result = PyUFunc_ReduceWrapper(arr, out, wheremask, op_dtype, result_dtype,
                                    NPY_UNSAFE_CASTING,
                                    axis_flags, reorderable,
                                    keepdims, 0,
@@ -3668,7 +3653,8 @@ PyUFunc_Reduce(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
                                    reduce_loop,
                                    ufunc, buffersize, ufunc_name, errormask);
 
-    Py_DECREF(dtype);
+    Py_DECREF(result_dtype);
+    Py_DECREF(op_dtype);
     Py_DECREF(initial);
     return result;
 }
