@@ -4,6 +4,7 @@ A place for internal code
 Some things are more easily handled Python.
 
 """
+import ast
 import re
 import sys
 import platform
@@ -196,7 +197,7 @@ def _commastring(astr):
         if (repeats == b''):
             newitem = dtype
         else:
-            newitem = (dtype, eval(repeats))
+            newitem = (dtype, ast.literal_eval(repeats.decode('ascii')))
         result.append(newitem)
 
     return result
