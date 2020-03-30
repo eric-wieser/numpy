@@ -440,7 +440,7 @@ def _needs_add_docstring(obj):
     return True
 
 
-def _add_docstring(obj, doc, warn_on_python):
+def _add_docstring(obj, doc, *, warn_on_python):
     if warn_on_python and not _needs_add_docstring(obj):
         warnings.warn(
             "add_newdoc was used on a pure-python object {}. "
@@ -453,8 +453,16 @@ def _add_docstring(obj, doc, warn_on_python):
     except Exception:
         pass
 
+def _add_docstring_and_sig(obj, sig_or_doc, doc=None, *, warn_on_python):
+    if doc is not None:
+        doc = '    ' + sig_or_doc+ '\n--\n\n' + doc
+    else:
+        doc = sig_or_doc
+    doc = doc.strip()
+    _add_docstring(obj, doc, warn_on_python=warn_on_python)
 
-def add_newdoc(place, obj, doc, warn_on_python=True):
+
+def add_newdoc(place, obj, doc, *args, warn_on_python=True):
     """
     Add documentation to an existing object, typically one defined in C
 
@@ -502,10 +510,14 @@ def add_newdoc(place, obj, doc, warn_on_python=True):
     """
     new = getattr(__import__(place, globals(), {}, [obj]), obj)
     if isinstance(doc, str):
-        _add_docstring(new, doc.strip(), warn_on_python)
+        _add_docstring_and_sig(new, doc, *args, warn_on_python=warn_on_python)
     elif isinstance(doc, tuple):
-        attr, docstring = doc
-        _add_docstring(getattr(new, attr), docstring.strip(), warn_on_python)
+        if args:
+            raise TypeError
+        attr, doc, *args = doc
+        _add_docstring_and_sig(getattr(new, attr), doc, *args, warn_on_python=warn_on_python)
     elif isinstance(doc, list):
-        for attr, docstring in doc:
-            _add_docstring(getattr(new, attr), docstring.strip(), warn_on_python)
+        if args:
+            raise TypeError
+        for attr, doc, *args in doc:
+            _add_docstring_and_sig(getattr(new, attr), doc, *args, warn_on_python=warn_on_python)
